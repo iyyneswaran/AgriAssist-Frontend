@@ -24,7 +24,7 @@ export default function Chat() {
     const [isLoadingMessages, setIsLoadingMessages] = useState(false);
 
     // WebSocket Hook
-    const { isConnected, isStreaming, aiMessageStream, wsError, sendMessage, clearStream } = useChatWebSocket(activeConversationId, token);
+    const { isConnected, isStreaming, aiMessageStream, wsError, sendMessage, connectAndSend, clearStream } = useChatWebSocket(activeConversationId, token);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -86,10 +86,14 @@ export default function Chat() {
     const handleSend = async () => {
         if (!inputText.trim() || !token) return;
 
-        let targetConvId = activeConversationId;
+        const currentText = inputText;
+        setInputText('');
 
-        // 1. If this is a new chat (no active ID), we need to hit the backend HTTP endpoint to create the record first
-        if (!targetConvId) {
+        let targetConvId = activeConversationId;
+        const isNewConversation = !targetConvId;
+
+        // 1. If this is a new chat (no active ID), create the record first
+        if (isNewConversation) {
             try {
                 const res = await startConversation(token);
                 targetConvId = res.conversation.id;
@@ -110,17 +114,20 @@ export default function Chat() {
             conversationId: targetConvId as string,
             sender: 'USER',
             messageType: 'TEXT',
-            textContent: inputText,
+            textContent: currentText,
             filePath: null,
             createdAt: new Date().toISOString()
         };
 
-        // State updates are async. Using currentText ensures the exact input goes through
-        const currentText = inputText;
         setMessages(prev => [...prev, userMsg]);
-        setInputText('');
 
-        sendMessage(currentText);
+        // For new conversations, use connectAndSend to avoid the
+        // race condition where sendMessage has a stale conversationId
+        if (isNewConversation) {
+            connectAndSend(targetConvId as string, currentText);
+        } else {
+            sendMessage(currentText);
+        }
     };
 
     const startNewChat = () => {
