@@ -3,6 +3,10 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import SignUp from "./pages/SignUp";
+import Chat from "./pages/Chat";
+import FarmDetails from "./pages/FarmDetails";
+import ScanCrop from "./pages/ScanCrop";
+import Profile from "./pages/Profile";
 import { AuthProvider, useAuth } from './context/AuthContext';
 
 // Simple protected route wrapper
@@ -38,6 +42,38 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <Home />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/chat"
+            element={
+              <ProtectedRoute>
+                <Chat />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/farm-details"
+            element={
+              <ProtectedRoute>
+                <FarmDetails />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/scan-crop"
+            element={
+              <ProtectedRoute>
+                <ScanCrop />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <Profile />
               </ProtectedRoute>
             }
           />
