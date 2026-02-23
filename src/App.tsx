@@ -5,6 +5,7 @@ import Login from "./pages/Login";
 import SignUp from "./pages/SignUp";
 import Chat from "./pages/Chat";
 import FarmDetails from "./pages/FarmDetails";
+import Forecast from "./pages/Forecast";
 import ScanCrop from "./pages/ScanCrop";
 import Profile from "./pages/Profile";
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -50,6 +51,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <Chat />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/forecast"
+            element={
+              <ProtectedRoute>
+                <Forecast />
               </ProtectedRoute>
             }
           />

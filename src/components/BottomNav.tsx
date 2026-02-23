@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Home, MessageCircle, LayoutGrid } from 'lucide-react';
+import { Home, MessageCircle, LayoutGrid, ShieldAlert } from 'lucide-react';
 
 const BottomNav: React.FC = () => {
   const navigate = useNavigate();
@@ -8,8 +8,9 @@ const BottomNav: React.FC = () => {
 
   const navItems = [
     { name: 'Home', path: '/', icon: Home },
+    { name: 'Forecast', path: '/forecast', icon: ShieldAlert },
     { name: 'Chat', path: '/chat', icon: MessageCircle },
-    { name: 'Farm Details', path: '/farm-details', icon: LayoutGrid },
+    { name: 'Farm', path: '/farm-details', icon: LayoutGrid },
   ];
 
   return (
