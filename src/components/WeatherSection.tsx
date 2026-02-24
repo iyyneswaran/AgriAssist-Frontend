@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MapPin, Sun, Droplets, Wind, Loader2, CloudRain, CloudLightning, Snowflake, Cloud } from 'lucide-react';
+import { MapPin, Sun, Droplets, Wind, CloudRain, CloudLightning, Snowflake, Cloud } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getMyLand } from '../services/landService';
 import { getWeather } from '../services/weatherService';
@@ -50,8 +50,40 @@ const WeatherSection: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="glass-panel-dark rounded-3xl p-5 h-48 flex items-center justify-center">
-        <Loader2 className="animate-spin text-green-500" size={32} />
+      <div className="space-y-4">
+        {/* Main Weather Card Skeleton */}
+        <div className="glass-panel-dark rounded-3xl p-5 relative overflow-hidden shadow-2xl animate-pulse min-h-[192px]">
+          <div className="flex justify-between items-start">
+            <div className="space-y-4 w-full">
+              <div className="h-6 w-32 bg-white/10 rounded-full"></div>
+              <div className="h-16 w-32 bg-white/10 rounded-2xl"></div>
+              <div className="h-3 w-40 bg-white/10 rounded-full"></div>
+              <div className="h-6 w-24 bg-white/10 rounded-full mt-3"></div>
+            </div>
+            <div className="w-24 h-24 flex-shrink-0 bg-white/10 rounded-full ml-4 mt-2"></div>
+          </div>
+          <div className="mt-4 border-t border-white/5 pt-3">
+            <div className="h-3 w-3/4 bg-white/10 rounded-full"></div>
+          </div>
+        </div>
+
+        {/* Stats Row Skeleton */}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="glass-panel-dark shadow-lg rounded-2xl p-4 flex items-center gap-3 border border-white/5 animate-pulse">
+            <div className="w-10 h-10 rounded-full bg-white/10 shrink-0"></div>
+            <div className="space-y-2 w-full">
+              <div className="h-3 w-16 bg-white/10 rounded-full"></div>
+              <div className="h-4 w-20 bg-white/10 rounded-full"></div>
+            </div>
+          </div>
+          <div className="glass-panel-dark shadow-lg rounded-2xl p-4 flex items-center gap-3 border border-white/5 animate-pulse">
+            <div className="w-10 h-10 rounded-full bg-white/10 shrink-0"></div>
+            <div className="space-y-2 w-full">
+              <div className="h-3 w-16 bg-white/10 rounded-full"></div>
+              <div className="h-4 w-20 bg-white/10 rounded-full"></div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }

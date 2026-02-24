@@ -221,8 +221,51 @@ export default function Profile() {
 
     if (isLoading) {
         return (
-            <div className="min-h-screen bg-black flex items-center justify-center">
-                <Loader2 className="animate-spin text-green-500" size={32} />
+            <div className="relative min-h-screen w-full overflow-hidden flex flex-col items-center bg-black">
+                <div className="fixed inset-0 z-0 opacity-20 pointer-events-none bg-gradient-to-br from-green-900/40 via-black to-teal-900/30"></div>
+                <div className="relative z-10 w-full max-w-md flex-1 flex flex-col pb-32 animate-pulse">
+                    <div className="pt-12 px-5 flex items-center gap-4 border-b border-white/5 pb-4">
+                        <div className="w-10 h-10 rounded-full bg-white/10"></div>
+                        <div className="h-9 w-32 rounded-full bg-white/10"></div>
+                    </div>
+                    <div className="px-6 mt-6 space-y-8">
+                        {/* Personal Details Skeleton */}
+                        <div className="glass-panel-dark border border-white/10 rounded-3xl p-6 bg-white/5">
+                            <div className="h-6 w-40 bg-white/10 rounded-full mb-6"></div>
+                            <div className="space-y-4">
+                                <div className="space-y-2">
+                                    <div className="h-3 w-20 bg-white/10 rounded-full ml-2"></div>
+                                    <div className="h-12 w-full bg-white/10 rounded-xl"></div>
+                                </div>
+                                <div className="space-y-2">
+                                    <div className="h-3 w-24 bg-white/10 rounded-full ml-2"></div>
+                                    <div className="h-12 w-full bg-white/10 rounded-xl"></div>
+                                </div>
+                            </div>
+                        </div>
+                        {/* Farm Profile Skeleton */}
+                        <div className="glass-panel-dark border border-white/10 rounded-3xl p-6 bg-white/5 relative overflow-hidden">
+                            <div className="h-6 w-48 bg-white/10 rounded-full mb-6"></div>
+                            <div className="space-y-4">
+                                <div className="space-y-2">
+                                    <div className="h-3 w-32 bg-white/10 rounded-full ml-2"></div>
+                                    <div className="h-12 w-full bg-white/10 rounded-xl"></div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <div className="h-3 w-28 bg-white/10 rounded-full ml-2"></div>
+                                        <div className="h-12 w-full bg-white/10 rounded-xl"></div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <div className="h-3 w-20 bg-white/10 rounded-full ml-2"></div>
+                                        <div className="h-12 w-full bg-white/10 rounded-xl"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <BottomNav />
             </div>
         );
     }

@@ -6,7 +6,6 @@ import {
     Thermometer,
     AlertTriangle,
     MapPin,
-    Loader2,
     RefreshCw,
     Droplets,
     Flame,
@@ -134,11 +133,57 @@ export default function Forecast() {
     if (loading) {
         return (
             <div className="relative min-h-screen w-full overflow-hidden flex justify-center bg-black">
+                {/* Background */}
                 <div className="fixed inset-0 z-0 bg-gradient-to-b from-black/80 via-black/50 to-black/90 pointer-events-none"></div>
-                <div className="relative z-10 w-full max-w-md flex items-center justify-center">
-                    <div className="flex flex-col items-center gap-3">
-                        <Loader2 className="animate-spin text-green-500" size={36} />
-                        <p className="text-gray-400 text-sm">Analyzing satellite data...</p>
+
+                {/* Main Content Skeleton */}
+                <div className="relative z-10 w-full max-w-md h-full flex flex-col pb-32 overflow-y-auto no-scrollbar animate-pulse">
+
+                    {/* Header */}
+                    <div className="pt-6 px-4 flex items-center justify-between">
+                        <div className="h-8 w-40 bg-white/10 rounded-full"></div>
+                        <div className="h-8 w-8 bg-white/10 rounded-full"></div>
+                    </div>
+
+                    {/* Location */}
+                    <div className="px-4 mt-2 mb-2">
+                        <div className="h-3 w-32 bg-white/10 rounded-full"></div>
+                    </div>
+
+                    {/* ─── Alert Banners Skeleton ───────────────────────── */}
+                    <div className="mt-5 px-4 space-y-3">
+                        <div className="glass-panel-dark rounded-2xl h-16 border-l-4 border-l-white/10 border border-white/5 bg-white/5"></div>
+                        <div className="glass-panel-dark rounded-2xl h-16 border-l-4 border-l-white/10 border border-white/5 bg-white/5"></div>
+                    </div>
+
+                    {/* ─── Metric Cards Skeleton ────────────────────────── */}
+                    <div className="mt-6 px-4">
+                        <div className="h-3 w-28 bg-white/10 rounded-full mb-3"></div>
+                        <div className="grid grid-cols-3 gap-3">
+                            {[1, 2, 3].map((i) => (
+                                <div key={i} className="glass-panel-dark rounded-2xl p-3 border border-white/10 flex flex-col items-center justify-center h-32 bg-white/5">
+                                    <div className="w-12 h-12 rounded-full bg-white/10 mb-3"></div>
+                                    <div className="h-3 w-14 bg-white/10 rounded-full mb-1"></div>
+                                    <div className="h-2 w-10 bg-white/10 rounded-full"></div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* ─── Risk Assessment Skeleton ─────────────────────── */}
+                    <div className="mt-6 px-4">
+                        <div className="h-3 w-40 bg-white/10 rounded-full mb-3"></div>
+                        <div className="glass-panel-dark rounded-2xl border border-white/10 p-4 space-y-5 bg-white/5">
+                            {[1, 2, 3].map((i) => (
+                                <div key={i}>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <div className="h-3 w-24 bg-white/10 rounded-full"></div>
+                                        <div className="h-3 w-16 bg-white/10 rounded-full"></div>
+                                    </div>
+                                    <div className="w-full h-2 bg-white/10 rounded-full"></div>
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 </div>
                 <BottomNav />
