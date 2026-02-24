@@ -8,9 +8,11 @@ import { useAuth } from '../context/AuthContext';
 import { getMyConversations, startConversation, getConversationMessages, deleteConversation } from '../services/chatService';
 import type { ChatMessage } from '../services/chatService';
 import { useChatWebSocket } from '../hooks/useChatWebSocket';
+import { useTranslation } from 'react-i18next';
 
 export default function Chat() {
     const { token } = useAuth();
+    const { t } = useTranslation();
 
     // Sidebar & History State
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -173,7 +175,7 @@ export default function Chat() {
                     <div className="ml-4 px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/10 text-white/90 text-sm font-medium">
                         AgriAssist
                     </div>
-                    {wsError && <div className="ml-auto text-xs text-red-400">WS Error</div>}
+                    {wsError && <div className="ml-auto text-xs text-red-400">{t('chat.wsError')}</div>}
                 </div>
 
                 {/* Chat Area */}
@@ -183,7 +185,7 @@ export default function Chat() {
                     {!activeConversationId && messages.length === 0 ? (
                         <div className="flex-1 flex flex-col items-center justify-center -mt-20">
                             <h1 className="text-2xl font-medium text-white mb-8 tracking-wide">
-                                What can I help <span className="text-green-400">with?</span>
+                                {t('chat.whatCanIHelp')} <span className="text-green-400">{t('chat.with')}</span>
                             </h1>
 
                             <div className="flex gap-4">
@@ -192,18 +194,18 @@ export default function Chat() {
                                     className="flex items-center gap-2 px-6 py-2.5 rounded-full glass-panel-dark border border-white/20 text-white/90 hover:bg-white/10 transition-colors text-sm font-medium"
                                 >
                                     <Mic size={16} className="text-teal-400" />
-                                    Voice chat
+                                    {t('chat.voiceChat')}
                                 </button>
                                 <button className="flex items-center gap-2 px-6 py-2.5 rounded-full glass-panel-dark border border-white/20 text-white/90 hover:bg-white/10 transition-colors text-sm font-medium">
                                     <Star size={16} className="text-yellow-400 fill-yellow-400" />
-                                    Crop Analysis
+                                    {t('chat.cropAnalysis')}
                                 </button>
                             </div>
                         </div>
                     ) : (
                         /* Active Chat View */
                         <div className="flex-1 py-4 space-y-6">
-                            {isLoadingMessages && <p className="text-center text-white/50 text-sm">Loading...</p>}
+                            {isLoadingMessages && <p className="text-center text-white/50 text-sm">{t('chat.loading')}</p>}
 
                             {messages.map((msg, idx) => (
                                 <div key={idx} className={`flex ${msg.sender === 'USER' ? 'justify-end' : 'justify-start'}`}>
@@ -238,7 +240,7 @@ export default function Chat() {
                             type="text"
                             value={inputText}
                             onChange={(e) => setInputText(e.target.value)}
-                            placeholder={activeConversationId && !isConnected ? "Reconnecting..." : "Ask AgriAssist..."}
+                            placeholder={activeConversationId && !isConnected ? t('chat.reconnecting') : t('chat.askAgriAssist')}
                             disabled={!!(activeConversationId && !isConnected)}
                             className="flex-1 bg-transparent text-white placeholder-white/50 focus:outline-none text-sm disabled:opacity-50"
                             onKeyDown={(e) => {

@@ -8,6 +8,7 @@ import { getActiveCrops } from '../services/cropService';
 import type { CropAssignment } from '../services/cropService';
 import { getWeather } from '../services/weatherService';
 import type { WeatherData } from '../services/weatherService';
+import { useTranslation } from 'react-i18next';
 
 // Crop image mapper from local assets
 const cropImages: Record<string, string> = {
@@ -26,17 +27,17 @@ const getCropImage = (cropName: string): string => {
     return cropImages[key] || cropImages['wheat'];
 };
 
-const getCropStage = (sowingDate: string, growthDays: number): string => {
+const getCropStageKey = (sowingDate: string, growthDays: number): string => {
     const sowing = new Date(sowingDate);
     const now = new Date();
     const daysPassed = Math.floor((now.getTime() - sowing.getTime()) / (1000 * 60 * 60 * 24));
     const progress = daysPassed / growthDays;
-    if (progress < 0.15) return 'Germination';
-    if (progress < 0.3) return 'Seedling';
-    if (progress < 0.5) return 'Vegetative';
-    if (progress < 0.7) return 'Flowering';
-    if (progress < 0.9) return 'Fruiting';
-    return 'Maturity';
+    if (progress < 0.15) return 'farm.germination';
+    if (progress < 0.3) return 'farm.seedling';
+    if (progress < 0.5) return 'farm.vegetative';
+    if (progress < 0.7) return 'farm.flowering';
+    if (progress < 0.9) return 'farm.fruiting';
+    return 'farm.maturity';
 };
 
 interface FieldCardData {
@@ -48,11 +49,21 @@ interface FieldCardData {
 
 export default function FarmDetails() {
     const { token } = useAuth();
+    const { t } = useTranslation();
     const [loading, setLoading] = useState(true);
     const [farmLocation, setFarmLocation] = useState({ district: '', state: '', soilType: '' });
     const [fieldCards, setFieldCards] = useState<FieldCardData[]>([]);
     const [expandedIndex, setExpandedIndex] = useState<number | null>(0);
     const [weather, setWeather] = useState<WeatherData | null>(null);
+
+    const mapSoilType = (type: string) => {
+        if (!type) return '—';
+        const key = type.toLowerCase().replace(/\s*soil/, 'Soil');
+        if (['blackSoil', 'redSoil', 'alluvial', 'laterite', 'sandy'].includes(key)) {
+            return t(`profile.${key}`);
+        }
+        return type;
+    };
 
     useEffect(() => {
         const fetchData = async () => {
@@ -127,7 +138,7 @@ export default function FarmDetails() {
                 {/* Header Pill */}
                 <div className="pt-6 px-4">
                     <div className="inline-block px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/10 text-white/90 text-sm font-medium">
-                        Farm Details
+                        {t('farm.farmDetails')}
                     </div>
                 </div>
 
@@ -136,8 +147,8 @@ export default function FarmDetails() {
                     <div className="mt-8 px-4">
                         <div className="glass-panel-dark border border-white/10 rounded-3xl p-8 text-center">
                             <Folder className="text-gray-500 mx-auto mb-3" size={32} />
-                            <p className="text-gray-400 text-sm">No fields registered yet.</p>
-                            <p className="text-gray-500 text-xs mt-1">Go to your Profile to add fields and crops.</p>
+                            <p className="text-gray-400 text-sm">{t('farm.noFields')}</p>
+                            <p className="text-gray-500 text-xs mt-1">{t('farm.goToProfile')}</p>
                         </div>
                     </div>
                 )}
@@ -146,11 +157,12 @@ export default function FarmDetails() {
                 <div className="mt-6 px-4 space-y-4">
                     {fieldCards.map((card, index) => {
                         const isExpanded = expandedIndex === index;
-                        const cropName = card.assignment?.crop?.name || 'Unassigned';
+                        const cropName = card.assignment?.crop?.name || t('farm.unassigned');
                         const cropImg = card.assignment ? getCropImage(cropName) : '';
-                        const cropStage = card.assignment
-                            ? getCropStage(card.assignment.sowingDate, card.assignment.crop.growthDays)
-                            : '—';
+                        const cropStageKey = card.assignment
+                            ? getCropStageKey(card.assignment.sowingDate, card.assignment.crop.growthDays)
+                            : null;
+                        const cropStage = cropStageKey ? t(cropStageKey) : '—';
                         const harvestDate = card.assignment?.harvestDate
                             ? new Date(card.assignment.harvestDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
                             : '—';
@@ -192,22 +204,22 @@ export default function FarmDetails() {
                                             {/* Left Text Details */}
                                             <div className="space-y-2.5 z-10 text-sm">
                                                 <p className="text-gray-200">
-                                                    Farm Number: <span className="text-green-400">{index + 1}</span>
+                                                    {t('farm.farmNumber')} <span className="text-green-400">{index + 1}</span>
                                                 </p>
                                                 <p className="text-gray-200">
-                                                    Total Area: <span className="text-green-400">{card.fieldArea} Acres</span>
+                                                    {t('farm.totalArea')} <span className="text-green-400">{card.fieldArea} {t('profile.acres')}</span>
                                                 </p>
                                                 <p className="text-gray-200">
-                                                    Crop Name: <span className="text-green-400">{cropName}</span>
+                                                    {t('farm.cropName')} <span className="text-green-400">{cropName}</span>
                                                 </p>
                                                 <p className="text-gray-200">
-                                                    Soil Type: <span className="text-green-400">{farmLocation.soilType}</span>
+                                                    {t('farm.soilType')} <span className="text-green-400">{mapSoilType(farmLocation.soilType)}</span>
                                                 </p>
                                                 <p className="text-gray-200">
-                                                    Crop Stage: <span className="text-green-400">{cropStage}</span>
+                                                    {t('farm.cropStage')} <span className="text-green-400">{cropStage}</span>
                                                 </p>
                                                 <p className="text-gray-200 mt-1">
-                                                    Expected Harvest: <span className="text-green-400">{harvestDate}</span>
+                                                    {t('farm.expectedHarvest')} <span className="text-green-400">{harvestDate}</span>
                                                 </p>
                                             </div>
 
@@ -229,18 +241,18 @@ export default function FarmDetails() {
                                             <div className="space-y-3">
                                                 <div className="flex items-center gap-2">
                                                     <Droplet size={18} className="text-teal-400 fill-teal-400" />
-                                                    <span className="text-gray-200 text-sm">Humidity: <span className="text-green-400">{weather ? `${weather.humidity}%` : '—'}</span></span>
+                                                    <span className="text-gray-200 text-sm">{t('farm.humidity')} <span className="text-green-400">{weather ? `${weather.humidity}%` : '—'}</span></span>
                                                 </div>
                                                 <div className="flex items-center gap-2">
                                                     <Sun size={18} className="text-yellow-400 fill-yellow-400" />
-                                                    <span className="text-gray-200 text-sm">Temperature: <span className="text-white">{weather ? `${weather.temperature}°C` : '—'}</span></span>
+                                                    <span className="text-gray-200 text-sm">{t('farm.temperature')} <span className="text-white">{weather ? `${weather.temperature}°C` : '—'}</span></span>
                                                 </div>
                                             </div>
 
                                             {/* Right: Weather Mini Widget */}
                                             {weather && (
                                                 <div className="bg-[#1f261f]/80 backdrop-blur-md rounded-2xl border border-white/10 p-3 flex flex-col items-center min-w-[90px]">
-                                                    <h3 className="text-gray-300 text-[10px] font-medium mb-1.5">Weather</h3>
+                                                    <h3 className="text-gray-300 text-[10px] font-medium mb-1.5">{t('farm.weather')}</h3>
                                                     <img
                                                         src={weatherIconSrc}
                                                         alt={weather.conditionName}

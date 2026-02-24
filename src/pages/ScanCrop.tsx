@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, Image as ImageIcon } from 'lucide-react';
 import BottomNav from '../components/BottomNav';
+import { useTranslation } from 'react-i18next';
 
 export default function ScanCrop() {
     const navigate = useNavigate();
+    const { t } = useTranslation();
     const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
     const [previewUrls, setPreviewUrls] = useState<string[]>([]);
 
@@ -48,7 +50,7 @@ export default function ScanCrop() {
                         <ChevronLeft size={20} />
                     </button>
                     <div className="px-5 py-2.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white/90 text-sm font-medium">
-                        Analysis using AI
+                        {t('scan.analysisUsingAI')}
                     </div>
                 </div>
 
@@ -60,7 +62,7 @@ export default function ScanCrop() {
                     </div>
 
                     <p className="text-white text-center text-[17px] font-medium leading-snug mb-8 max-w-[260px]">
-                        Upload a document to begin the analysis process.
+                        {t('scan.uploadToBegin')}
                     </p>
 
                     {/* Previews Container */}
@@ -79,9 +81,9 @@ export default function ScanCrop() {
                     <div className="relative w-full mb-10">
                         {/* The visible styling */}
                         <div className="w-full bg-white/5 backdrop-blur-md border border-white/20 rounded-full px-6 py-4 flex items-center justify-between text-sm shadow-xl">
-                            <span className="text-white font-medium">Choose image(s)</span>
+                            <span className="text-white font-medium">{t('scan.chooseImages')}</span>
                             <span className="text-gray-300 font-medium truncate max-w-[120px]">
-                                {selectedFiles.length > 0 ? `${selectedFiles.length} file${selectedFiles.length > 1 ? 's' : ''} chosen` : "No file chosen"}
+                                {selectedFiles.length > 0 ? t('scan.filesChosen', { count: selectedFiles.length }) : t('scan.noFileChosen')}
                             </span>
                         </div>
 
@@ -97,7 +99,7 @@ export default function ScanCrop() {
 
                     {/* Action Button */}
                     <button className="bg-black/80 backdrop-blur-md border border-white/20 shadow-2xl rounded-full px-8 py-4 flex items-center gap-2 text-white font-medium hover:bg-white/10 transition-transform active:scale-95">
-                        Start analytic with AI <span>✨</span>
+                        {t('scan.startAnalytic')} <span>✨</span>
                     </button>
                 </div>
             </div>

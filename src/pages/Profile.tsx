@@ -10,6 +10,7 @@ import type { LandDetails } from '../services/landService';
 import { listCrops, assignCrop, getActiveCrops } from '../services/cropService';
 import type { Crop } from '../services/cropService';
 import { addField, getMyFields } from '../services/fieldService';
+import { useTranslation } from 'react-i18next';
 
 interface NewFieldInput {
     name: string;
@@ -27,6 +28,7 @@ interface ExistingFieldData {
 export default function Profile() {
     const navigate = useNavigate();
     const { token } = useAuth();
+    const { t } = useTranslation();
 
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -285,7 +287,7 @@ export default function Profile() {
                         <ChevronLeft size={20} />
                     </button>
                     <div className="px-5 py-2.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white/90 text-sm font-medium">
-                        My Profile
+                        {t('profile.myProfile')}
                     </div>
                 </div>
 
@@ -294,20 +296,20 @@ export default function Profile() {
                     {/* Personal Information */}
                     <div className="glass-panel-dark border border-white/10 rounded-3xl p-6 shadow-2xl">
                         <h2 className="text-white text-lg font-medium mb-4 flex items-center gap-2">
-                            Personal Details
+                            {t('profile.personalDetails')}
                         </h2>
                         <div className="space-y-4">
                             <div>
-                                <label className="text-xs text-gray-400 ml-2">Full Name</label>
+                                <label className="text-xs text-gray-400 ml-2">{t('profile.fullName')}</label>
                                 <input type="text" value={name} onChange={(e) => setName(e.target.value)}
                                     className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-green-500/50 mt-1 placeholder-gray-500"
-                                    placeholder="Enter your name" />
+                                    placeholder={t('profile.enterName')} />
                             </div>
                             <div>
-                                <label className="text-xs text-gray-400 ml-2">Phone Number</label>
+                                <label className="text-xs text-gray-400 ml-2">{t('profile.phoneNumber')}</label>
                                 <input type="text" disabled value={user?.phoneNumber || ''}
                                     className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-gray-400 mt-1 cursor-not-allowed" />
-                                <p className="text-[10px] text-gray-500 ml-2 mt-1">Phone numbers cannot be changed here.</p>
+                                <p className="text-[10px] text-gray-500 ml-2 mt-1">{t('profile.phoneDesc')}</p>
                             </div>
                         </div>
                     </div>
@@ -316,31 +318,31 @@ export default function Profile() {
                     <div className="glass-panel-dark border border-white/10 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
                         <div className="absolute top-0 right-0 w-32 h-32 bg-green-500/10 blur-3xl pointer-events-none rounded-full"></div>
                         <h2 className="text-white text-lg font-medium mb-4 flex items-center gap-2 relative">
-                            Master Farm Profile
+                            {t('profile.masterFarmProfile')}
                         </h2>
                         <div className="space-y-4 relative">
                             <div>
-                                <label className="text-xs text-gray-400 ml-2">Total Farm Name</label>
+                                <label className="text-xs text-gray-400 ml-2">{t('profile.totalFarmName')}</label>
                                 <input type="text" value={farmName} onChange={(e) => setFarmName(e.target.value)}
                                     className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-green-500/50 mt-1 placeholder-gray-500"
-                                    placeholder="e.g. Green Valley Estate" />
+                                    placeholder={t('profile.enterFarmName')} />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="text-xs text-gray-400 ml-2">Total Area (Acres)</label>
+                                    <label className="text-xs text-gray-400 ml-2">{t('profile.totalArea')}</label>
                                     <input type="number" value={totalArea} onChange={(e) => setTotalArea(Number(e.target.value))}
                                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-green-500/50 mt-1"
                                         placeholder="0.0" />
                                 </div>
                                 <div>
-                                    <label className="text-xs text-gray-400 ml-2">Soil Type</label>
+                                    <label className="text-xs text-gray-400 ml-2">{t('profile.soilType')}</label>
                                     <select value={soilType} onChange={(e) => setSoilType(e.target.value)}
                                         className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-green-500/50 mt-1 appearance-none">
-                                        <option value="Black">Black Soil</option>
-                                        <option value="Red">Red Soil</option>
-                                        <option value="Alluvial">Alluvial</option>
-                                        <option value="Laterite">Laterite</option>
-                                        <option value="Sandy">Sandy</option>
+                                        <option value="Black">{t('profile.blackSoil')}</option>
+                                        <option value="Red">{t('profile.redSoil')}</option>
+                                        <option value="Alluvial">{t('profile.alluvial')}</option>
+                                        <option value="Laterite">{t('profile.laterite')}</option>
+                                        <option value="Sandy">{t('profile.sandy')}</option>
                                     </select>
                                 </div>
                             </div>
@@ -350,16 +352,16 @@ export default function Profile() {
                     {/* Registered Fields (Existing — Read Only) */}
                     {existingFields.length > 0 && (
                         <div className="glass-panel-dark border border-white/10 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
-                            <h2 className="text-white text-lg font-medium mb-4">Your Registered Fields</h2>
+                            <h2 className="text-white text-lg font-medium mb-4">{t('profile.yourRegisteredFields')}</h2>
                             <div className="space-y-3">
                                 {existingFields.map((ef, i) => (
                                     <div key={ef.id || i} className="bg-white/5 border border-white/5 rounded-2xl p-4 flex justify-between items-center">
                                         <div>
                                             <p className="text-white text-sm font-medium">{ef.name}</p>
-                                            <p className="text-gray-400 text-xs mt-0.5">{ef.area} Acres · {ef.cropName}</p>
+                                            <p className="text-gray-400 text-xs mt-0.5">{ef.area} {t('profile.acres')} · {ef.cropName}</p>
                                         </div>
                                         <div className="bg-green-500/20 text-green-400 text-[10px] px-2 py-0.5 rounded-full border border-green-500/30">
-                                            Active
+                                            {t('profile.active')}
                                         </div>
                                     </div>
                                 ))}
@@ -371,19 +373,19 @@ export default function Profile() {
                     <div className="glass-panel-dark border border-white/10 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
                         <div className="absolute bottom-0 left-0 w-40 h-40 bg-teal-500/10 blur-3xl pointer-events-none rounded-full"></div>
                         <div className="flex justify-between items-center mb-4 relative">
-                            <h2 className="text-white text-lg font-medium">Add New Crops</h2>
+                            <h2 className="text-white text-lg font-medium">{t('profile.addNewCrops')}</h2>
                             <button
                                 onClick={addNewFieldRow}
                                 className="flex items-center gap-1 text-xs bg-green-500/20 text-green-400 px-3 py-1.5 rounded-full hover:bg-green-500/30 transition-colors border border-green-500/30"
                             >
                                 <Plus size={12} />
-                                Add Field
+                                {t('profile.addField')}
                             </button>
                         </div>
 
                         {newFields.length === 0 && (
                             <p className="text-gray-500 text-xs text-center py-4 relative">
-                                Tap "Add Field" to register a new field with a crop.
+                                {t('profile.tapToAdd')}
                             </p>
                         )}
 
@@ -391,33 +393,33 @@ export default function Profile() {
                             {newFields.map((field, index) => (
                                 <div key={index} className="bg-black/40 border border-white/5 p-4 rounded-2xl relative">
                                     <div className="flex justify-between items-center mb-3">
-                                        <h3 className="text-green-400 text-sm font-medium">New Field {index + 1}</h3>
+                                        <h3 className="text-green-400 text-sm font-medium">{t('profile.newField')} {index + 1}</h3>
                                         <button onClick={() => removeNewFieldRow(index)} className="text-red-400/60 hover:text-red-400 transition-colors">
                                             <Trash2 size={14} />
                                         </button>
                                     </div>
                                     <div className="space-y-3">
                                         <div>
-                                            <label className="text-[10px] text-gray-500 ml-1">Field Name</label>
+                                            <label className="text-[10px] text-gray-500 ml-1">{t('profile.fieldName')}</label>
                                             <input type="text" value={field.name}
                                                 onChange={(e) => updateNewField(index, 'name', e.target.value)}
                                                 className="w-full bg-white/5 border border-transparent rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-green-500/50"
-                                                placeholder={`e.g. North Plot`} />
+                                                placeholder={t('profile.enterFieldName')} />
                                         </div>
                                         <div className="grid grid-cols-2 gap-3">
                                             <div>
-                                                <label className="text-[10px] text-gray-500 ml-1">Area (Acres)</label>
+                                                <label className="text-[10px] text-gray-500 ml-1">{t('profile.areaAcres')}</label>
                                                 <input type="number" value={field.area}
                                                     onChange={(e) => updateNewField(index, 'area', Number(e.target.value))}
                                                     className="w-full bg-white/5 border border-transparent rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-green-500/50"
                                                     placeholder="0.0" />
                                             </div>
                                             <div>
-                                                <label className="text-[10px] text-gray-500 ml-1">Planted Crop</label>
+                                                <label className="text-[10px] text-gray-500 ml-1">{t('profile.plantedCrop')}</label>
                                                 <select value={field.cropId}
                                                     onChange={(e) => updateNewField(index, 'cropId', e.target.value)}
                                                     className="w-full bg-[#1A1A1A] border border-transparent rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-green-500/50 appearance-none">
-                                                    <option value="" disabled>Select Crop</option>
+                                                    <option value="" disabled>{t('profile.selectCrop')}</option>
                                                     {availableCrops.map(crop => (
                                                         <option key={crop.id} value={crop.id}>{crop.name}</option>
                                                     ))}
@@ -433,23 +435,23 @@ export default function Profile() {
                     {/* Location Section */}
                     <div className="glass-panel-dark border border-white/10 rounded-3xl p-6 shadow-2xl">
                         <div className="flex justify-between items-center mb-4">
-                            <h2 className="text-white text-lg font-medium">Location</h2>
+                            <h2 className="text-white text-lg font-medium">{t('profile.location')}</h2>
                             <button onClick={handleAutoLocation} disabled={isLocating}
                                 className="flex items-center gap-1.5 text-xs bg-green-500/20 text-green-400 px-3 py-1.5 rounded-full hover:bg-green-500/30 transition-colors">
                                 {isLocating ? <Loader2 size={12} className="animate-spin" /> : <MapPin size={12} />}
-                                Auto-detect
+                                {t('profile.autoDetect')}
                             </button>
                         </div>
                         <div className="space-y-4">
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="text-xs text-gray-400 ml-2">District</label>
+                                    <label className="text-xs text-gray-400 ml-2">{t('profile.district')}</label>
                                     <input type="text" value={district} onChange={(e) => setDistrict(e.target.value)}
                                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-green-500/50 mt-1"
                                         placeholder="Madurai" />
                                 </div>
                                 <div>
-                                    <label className="text-xs text-gray-400 ml-2">State</label>
+                                    <label className="text-xs text-gray-400 ml-2">{t('profile.state')}</label>
                                     <input type="text" value={state} onChange={(e) => setState(e.target.value)}
                                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-green-500/50 mt-1"
                                         placeholder="Tamil Nadu" />
@@ -457,13 +459,13 @@ export default function Profile() {
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="text-xs text-gray-400 ml-2">Latitude</label>
+                                    <label className="text-xs text-gray-400 ml-2">{t('profile.latitude')}</label>
                                     <input type="number" value={lat} onChange={(e) => setLat(Number(e.target.value))}
                                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-green-500/50 mt-1 font-mono text-xs"
                                         placeholder="0.0000" />
                                 </div>
                                 <div>
-                                    <label className="text-xs text-gray-400 ml-2">Longitude</label>
+                                    <label className="text-xs text-gray-400 ml-2">{t('profile.longitude')}</label>
                                     <input type="number" value={lng} onChange={(e) => setLng(Number(e.target.value))}
                                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-green-500/50 mt-1 font-mono text-xs"
                                         placeholder="0.0000" />
@@ -476,7 +478,7 @@ export default function Profile() {
                     <button onClick={handleSave} disabled={isSaving}
                         className="w-full bg-white text-black font-semibold rounded-2xl py-4 shadow-[0_0_20px_rgba(255,255,255,0.2)] hover:bg-gray-200 transition-all flex justify-center items-center gap-2 mb-8">
                         {isSaving ? <Loader2 size={20} className="animate-spin" /> : <Save size={20} />}
-                        Save Profile
+                        {t('profile.saveProfile')}
                     </button>
 
                 </div>

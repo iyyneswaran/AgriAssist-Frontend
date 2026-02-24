@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Mic, X, Menu, Bot, Square, Loader2, Volume2 } from 'lucide-react';
 import { transcribeAudio, synthesizeSpeech, playAudioBlob } from '../services/voiceService';
+import { useTranslation } from 'react-i18next';
 
 interface VoiceChatOverlayProps {
     isOpen: boolean;
@@ -9,14 +10,14 @@ interface VoiceChatOverlayProps {
 
 type VoiceState = 'idle' | 'recording' | 'transcribing' | 'thinking' | 'speaking' | 'done' | 'error';
 
-const STATE_LABELS: Record<VoiceState, string> = {
-    idle: 'Tap the mic to speak',
-    recording: 'Listening...',
-    transcribing: 'Processing speech...',
-    thinking: 'Thinking...',
-    speaking: 'Speaking...',
-    done: 'Done! Tap mic to speak again',
-    error: 'Something went wrong. Try again.',
+const STATE_LABELS_KEYS: Record<VoiceState, string> = {
+    idle: 'chat.tapMic',
+    recording: 'chat.listening',
+    transcribing: 'chat.processingSpeech',
+    thinking: 'chat.thinking',
+    speaking: 'chat.speaking',
+    done: 'chat.doneTapMic',
+    error: 'chat.errorTryAgain',
 };
 
 const LANG_LABELS: Record<string, string> = {
@@ -30,6 +31,7 @@ const LANG_LABELS: Record<string, string> = {
 };
 
 export default function VoiceChatOverlay({ isOpen, onClose }: VoiceChatOverlayProps) {
+    const { t } = useTranslation();
     const [voiceState, setVoiceState] = useState<VoiceState>('idle');
     const [userText, setUserText] = useState('');
     const [aiText, setAiText] = useState('');
@@ -88,7 +90,7 @@ export default function VoiceChatOverlay({ isOpen, onClose }: VoiceChatOverlayPr
             recorder.start(100); // collect data every 100ms
         } catch (err: any) {
             console.error('Mic access error:', err);
-            setErrorMsg('Microphone access denied. Please allow mic permissions.');
+            setErrorMsg(t('chat.micDenied'));
             setVoiceState('error');
         }
     };
@@ -109,7 +111,7 @@ export default function VoiceChatOverlay({ isOpen, onClose }: VoiceChatOverlayPr
             setDetectedLang(lang);
 
             if (!text.trim()) {
-                setErrorMsg("Couldn't understand the audio. Please try again.");
+                setErrorMsg(t('chat.couldntUnderstand'));
                 setVoiceState('error');
                 return;
             }
@@ -130,7 +132,7 @@ export default function VoiceChatOverlay({ isOpen, onClose }: VoiceChatOverlayPr
             // Call the full voice pipeline by sending the audio to the backend
             // which does: STT → AI (Gemini) → TTS → returns audio
             // For now we use the direct TTS endpoint with the transcribed text
-            setAiText(`Processing: "${text}"`);
+            setAiText(`${t('chat.processingPrefix')} "${text}"`);
 
             // Step 3: TTS — synthesize response speech
             setVoiceState('speaking');
@@ -182,7 +184,7 @@ export default function VoiceChatOverlay({ isOpen, onClose }: VoiceChatOverlayPr
                 </button>
 
                 <div className="px-6 py-2 rounded-full bg-white/5 border border-white/10 text-white/90 text-sm font-medium tracking-wide">
-                    Voice Assistant
+                    {t('chat.voiceAssistant')}
                 </div>
 
                 {detectedLang && (
@@ -213,10 +215,10 @@ export default function VoiceChatOverlay({ isOpen, onClose }: VoiceChatOverlayPr
 
                     {/* The Avatar */}
                     <div className={`w-40 h-40 rounded-full flex items-center justify-center shadow-2xl border border-white/10 z-10 relative transition-all duration-500 ${isRecording
-                            ? 'bg-gradient-to-br from-red-900/60 to-black shadow-red-900/40'
-                            : voiceState === 'speaking'
-                                ? 'bg-gradient-to-br from-teal-900/60 to-black shadow-teal-900/40'
-                                : 'bg-gradient-to-br from-gray-800 to-black shadow-green-900/40'
+                        ? 'bg-gradient-to-br from-red-900/60 to-black shadow-red-900/40'
+                        : voiceState === 'speaking'
+                            ? 'bg-gradient-to-br from-teal-900/60 to-black shadow-teal-900/40'
+                            : 'bg-gradient-to-br from-gray-800 to-black shadow-green-900/40'
                         }`}>
                         {isProcessing ? (
                             <Loader2 size={60} className="text-green-400 animate-spin drop-shadow-[0_0_15px_rgba(74,222,128,0.5)]" />
@@ -231,7 +233,7 @@ export default function VoiceChatOverlay({ isOpen, onClose }: VoiceChatOverlayPr
                 {/* Status Label */}
                 <p className={`text-xl font-medium tracking-wide ${voiceState === 'error' ? 'text-red-400' : 'text-white'
                     } ${isRecording ? 'animate-pulse' : ''}`}>
-                    {STATE_LABELS[voiceState]}
+                    {t(STATE_LABELS_KEYS[voiceState])}
                 </p>
 
                 {/* Error message */}
@@ -242,7 +244,7 @@ export default function VoiceChatOverlay({ isOpen, onClose }: VoiceChatOverlayPr
                 {/* User's transcribed text */}
                 {userText && (
                     <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl px-5 py-3 max-w-sm">
-                        <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">You said</p>
+                        <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">{t('chat.youSaid')}</p>
                         <p className="text-white text-sm">{userText}</p>
                     </div>
                 )}
@@ -250,7 +252,7 @@ export default function VoiceChatOverlay({ isOpen, onClose }: VoiceChatOverlayPr
                 {/* AI response text */}
                 {aiText && voiceState !== 'transcribing' && (
                     <div className="bg-green-500/5 backdrop-blur-md border border-green-500/10 rounded-2xl px-5 py-3 max-w-sm">
-                        <p className="text-[10px] text-green-500/70 uppercase tracking-wider mb-1">AI Response</p>
+                        <p className="text-[10px] text-green-500/70 uppercase tracking-wider mb-1">{t('chat.aiResponse')}</p>
                         <p className="text-green-100 text-sm">{aiText}</p>
                     </div>
                 )}
@@ -263,10 +265,10 @@ export default function VoiceChatOverlay({ isOpen, onClose }: VoiceChatOverlayPr
                     onClick={handleMicClick}
                     disabled={isProcessing}
                     className={`w-16 h-16 rounded-full flex items-center justify-center border transition-all duration-300 ${isRecording
-                            ? 'bg-red-500/20 border-red-500/50 text-red-400 hover:bg-red-500/30 animate-pulse'
-                            : isProcessing
-                                ? 'bg-white/5 border-white/5 text-gray-500 cursor-not-allowed'
-                                : 'bg-white/5 border-white/10 text-white hover:bg-green-500/20 hover:border-green-500/50 hover:text-green-400'
+                        ? 'bg-red-500/20 border-red-500/50 text-red-400 hover:bg-red-500/30 animate-pulse'
+                        : isProcessing
+                            ? 'bg-white/5 border-white/5 text-gray-500 cursor-not-allowed'
+                            : 'bg-white/5 border-white/10 text-white hover:bg-green-500/20 hover:border-green-500/50 hover:text-green-400'
                         }`}
                 >
                     {isRecording ? <Square size={24} /> : <Mic size={24} />}

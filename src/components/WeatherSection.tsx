@@ -4,11 +4,13 @@ import { useAuth } from '../context/AuthContext';
 import { getMyLand } from '../services/landService';
 import { getWeather } from '../services/weatherService';
 import type { WeatherData } from '../services/weatherService';
+import { useTranslation } from 'react-i18next';
 
 const WeatherSection: React.FC = () => {
   const { token } = useAuth();
+  const { t } = useTranslation();
   const [weather, setWeather] = useState<WeatherData | null>(null);
-  const [locationName, setLocationName] = useState('Fetching location...');
+  const [locationName, setLocationName] = useState(t('weather.fetchingLocation'));
   const [loading, setLoading] = useState(true);
 
   // Format current date nicely
@@ -40,7 +42,7 @@ const WeatherSection: React.FC = () => {
 
       } catch (err) {
         console.error("Failed to load weather:", err);
-        setLocationName('Weather unavailable');
+        setLocationName(t('weather.weatherUnavailable'));
       } finally {
         setLoading(false);
       }
@@ -139,7 +141,7 @@ const WeatherSection: React.FC = () => {
             </div>
 
             <div className="flex items-baseline gap-2">
-              <h1 className="text-5xl font-light text-white">{weather?.temperature ?? '--'}° <span className="text-3xl font-normal">C</span></h1>
+              <h1 className="text-5xl font-light text-white">{weather?.temperature ?? '--'}° <span className="text-3xl font-normal">{t('weather.c')}</span></h1>
             </div>
             <p className="text-[10px] text-gray-400 mt-1">{dateString} | {timeString}</p>
 
@@ -162,10 +164,10 @@ const WeatherSection: React.FC = () => {
 
         <div className="mt-4 border-t border-white/5 pt-3">
           <p className="text-xs text-gray-300 font-light">
-            <span className="text-gray-400 font-medium">Suggestion: </span>
+            <span className="text-gray-400 font-medium">{t('weather.suggestion')}: </span>
             {weather?.precipitation && weather.precipitation > 0
-              ? "High moisture detected. Delay spraying chemicals."
-              : "Good conditions for farm activities."}
+              ? t('weather.highMoisture')
+              : t('weather.goodConditions')}
           </p>
         </div>
       </div>
@@ -177,8 +179,8 @@ const WeatherSection: React.FC = () => {
             <Droplets size={20} />
           </div>
           <div>
-            <p className="text-[10px] text-gray-400">Precipitation</p>
-            <p className="text-lg font-medium text-white">{weather?.precipitation ?? 0} mm</p>
+            <p className="text-[10px] text-gray-400">{t('weather.precipitation')}</p>
+            <p className="text-lg font-medium text-white">{weather?.precipitation ?? 0} {t('weather.mm')}</p>
           </div>
         </div>
 
@@ -187,8 +189,8 @@ const WeatherSection: React.FC = () => {
             <Wind size={20} />
           </div>
           <div>
-            <p className="text-[10px] text-gray-400">Wind</p>
-            <p className="text-lg font-medium text-white">{weather?.windSpeed ?? 0} km/h</p>
+            <p className="text-[10px] text-gray-400">{t('weather.wind')}</p>
+            <p className="text-lg font-medium text-white">{weather?.windSpeed ?? 0} {t('weather.kmh')}</p>
           </div>
         </div>
       </div>

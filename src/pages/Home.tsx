@@ -4,8 +4,11 @@ import FarmAdvisory from '../components/FarmAdvisory';
 import CropsSection from '../components/CropsSection';
 import ActionButtons from '../components/ActionButtons';
 import BottomNav from '../components/BottomNav';
+import { useTranslation } from 'react-i18next';
 
 export default function Home() {
+    const { t } = useTranslation();
+
     return (
         <div className="relative min-h-screen w-full overflow-hidden flex justify-center">
             {/* Gradient Overlay for Global Background */}
@@ -19,8 +22,8 @@ export default function Home() {
 
                     <div className="mt-8 mb-6">
                         <h1 className="text-3xl font-semibold leading-tight tracking-wide">
-                            Farming Made <span className="text-green-400">Simple,</span><br />
-                            <span className="text-green-400">Smarter,</span> and <span className="text-green-300">Sustainable</span>
+                            {t('home.farmingMade')} <span className="text-green-400">{t('home.simple')}</span><br />
+                            <span className="text-green-400">{t('home.smarter')}</span> {t('home.and')} <span className="text-green-300">{t('home.sustainable')}</span>
                         </h1>
                     </div>
 

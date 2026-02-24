@@ -3,10 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { Bell, ChevronDown } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getProfile } from '../services/userService';
+import { useTranslation } from 'react-i18next';
 
 const Header: React.FC = () => {
   const navigate = useNavigate();
   const { token } = useAuth();
+  const { t, i18n } = useTranslation();
   const [firstName, setFirstName] = useState('Farmer');
 
   useEffect(() => {
@@ -34,15 +36,25 @@ const Header: React.FC = () => {
   return (
     <div className="flex items-center justify-between w-full">
       <div>
-        <h2 className="text-xl font-medium text-green-400 capitalize">Hello, {firstName}</h2>
+        <h2 className="text-xl font-medium text-green-400 capitalize">{t('header.hello')}, {firstName}</h2>
         <p className="text-xs text-gray-400 mt-0.5">{formattedDate}</p>
       </div>
 
       <div className="flex items-center gap-3">
         {/* Language Selector */}
-        <div className="flex items-center gap-1 bg-white/10 rounded-full px-3 py-1.5 border border-white/10">
-          <span className="text-xs font-medium">English</span>
-          <ChevronDown size={12} className="text-gray-300" />
+        <div className="relative">
+          <select
+            className="appearance-none bg-white/10 rounded-full px-3 py-1.5 pl-4 pr-8 border border-white/10 text-xs font-medium text-white focus:outline-none focus:border-green-500/50 cursor-pointer"
+            value={i18n.language}
+            onChange={(e) => i18n.changeLanguage(e.target.value)}
+          >
+            <option value="en" className="bg-black">{t('header.english')}</option>
+            <option value="hi" className="bg-black">{t('header.hindi')}</option>
+            <option value="ta" className="bg-black">{t('header.tamil')}</option>
+          </select>
+          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-300">
+            <ChevronDown size={12} />
+          </div>
         </div>
 
         {/* Notification */}

@@ -1,16 +1,18 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Home, MessageCircle, LayoutGrid, ShieldAlert } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 const BottomNav: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useTranslation();
 
   const navItems = [
-    { name: 'Home', path: '/', icon: Home },
-    { name: 'Forecast', path: '/forecast', icon: ShieldAlert },
-    { name: 'Chat', path: '/chat', icon: MessageCircle },
-    { name: 'Farm', path: '/farm-details', icon: LayoutGrid },
+    { name: t('nav.home'), path: '/', icon: Home, code: 'home' },
+    { name: t('nav.forecast'), path: '/forecast', icon: ShieldAlert, code: 'forecast' },
+    { name: t('nav.chat'), path: '/chat', icon: MessageCircle, code: 'chat' },
+    { name: t('nav.farm'), path: '/farm-details', icon: LayoutGrid, code: 'farm' },
   ];
 
   return (
@@ -29,7 +31,7 @@ const BottomNav: React.FC = () => {
                 <Icon
                   size={20}
                   className={`transition-colors duration-300 ${isActive ? 'text-white fill-current' : 'text-gray-400 group-hover:text-gray-200'}`}
-                  fill={isActive && item.name === 'Home' ? "white" : "none"}
+                  fill={isActive && item.code === 'home' ? "white" : "none"}
                 />
               </div>
               <span className={`text-[10px] font-medium transition-colors duration-300 ${isActive ? 'text-white' : 'text-gray-400'}`}>

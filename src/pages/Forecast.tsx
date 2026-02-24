@@ -12,10 +12,11 @@ import {
     CheckCircle2,
 } from 'lucide-react';
 import BottomNav from '../components/BottomNav';
-import { useAuth } from '../context/AuthContext';
 import { getMyLand } from '../services/landService';
 import { analyzeGeo } from '../services/geoService';
 import type { GeoAnalysisData } from '../services/geoService';
+import { useTranslation } from 'react-i18next';
+import { useAuth } from '../context/AuthContext';
 
 // ─── Risk calculator helpers ────────────────────────────────────────────
 function calcFloodRisk(rainfallMm: number): number {
@@ -53,10 +54,10 @@ function riskColor(value: number): string {
     return 'from-green-400 to-emerald-500';
 }
 
-function riskLabel(value: number): string {
-    if (value >= 70) return 'High';
-    if (value >= 40) return 'Moderate';
-    return 'Low';
+function riskLabelKey(value: number): string {
+    if (value >= 70) return 'risk.high';
+    if (value >= 40) return 'risk.moderate';
+    return 'risk.low';
 }
 
 function riskTextColor(value: number): string {
@@ -94,6 +95,7 @@ function ndviRingColor(status: string): string {
 
 export default function Forecast() {
     const { token } = useAuth();
+    const { t } = useTranslation();
     const [data, setData] = useState<GeoAnalysisData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -199,9 +201,9 @@ export default function Forecast() {
                 <div className="relative z-10 w-full max-w-md flex items-center justify-center px-6">
                     <div className="glass-panel-dark rounded-3xl p-8 text-center border border-white/10 w-full">
                         <MapPin className="text-green-400 mx-auto mb-4" size={36} />
-                        <h2 className="text-white text-lg font-medium mb-2">No Farm Registered</h2>
+                        <h2 className="text-white text-lg font-medium mb-2">{t('forecast.noFarm')}</h2>
                         <p className="text-gray-400 text-sm leading-relaxed">
-                            Register your farm location in your Profile to get satellite-powered disaster forecasts and crop health analysis.
+                            {t('forecast.noFarmDesc')}
                         </p>
                     </div>
                 </div>
@@ -218,13 +220,13 @@ export default function Forecast() {
                 <div className="relative z-10 w-full max-w-md flex items-center justify-center px-6">
                     <div className="glass-panel-dark rounded-3xl p-8 text-center border border-white/10 w-full">
                         <AlertTriangle className="text-red-400 mx-auto mb-4" size={36} />
-                        <h2 className="text-white text-lg font-medium mb-2">Analysis Failed</h2>
+                        <h2 className="text-white text-lg font-medium mb-2">{t('forecast.analysisFailed')}</h2>
                         <p className="text-gray-400 text-sm mb-4">{error || 'Could not fetch forecast data.'}</p>
                         <button
                             onClick={() => fetchData()}
                             className="px-5 py-2 rounded-full bg-green-500/20 text-green-400 text-sm font-medium border border-green-500/30 hover:bg-green-500/30 transition"
                         >
-                            Try Again
+                            {t('forecast.tryAgain')}
                         </button>
                     </div>
                 </div>
@@ -255,7 +257,7 @@ export default function Forecast() {
                     <div className="flex items-center gap-3">
                         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/10 text-white/90 text-sm font-medium">
                             <ShieldAlert size={15} className="text-green-400" />
-                            Forecast & Alerts
+                            {t('forecast.forecastAndAlerts')}
                         </div>
                     </div>
                     <button
@@ -302,7 +304,7 @@ export default function Forecast() {
                 <div className="mt-6 px-4">
                     <h2 className="text-gray-300 text-xs font-semibold uppercase tracking-widest mb-3 flex items-center gap-2">
                         <span className="w-1 h-1 rounded-full bg-green-400"></span>
-                        Satellite Analysis
+                        {t('forecast.satelliteAnalysis')}
                     </h2>
 
                     <div className="grid grid-cols-3 gap-3">
@@ -329,10 +331,10 @@ export default function Forecast() {
                             </div>
                             <div className="flex items-center gap-1 mb-0.5">
                                 <Leaf size={12} className="text-green-400" />
-                                <span className="text-[10px] text-gray-400 font-medium">NDVI</span>
+                                <span className="text-[10px] text-gray-400 font-medium">{t('forecast.ndvi')}</span>
                             </div>
                             <span className={`text-[10px] font-semibold ${ndviColor(data.ndvi.health_status)}`}>
-                                {data.ndvi.health_status}
+                                {t('health.' + data.ndvi.health_status.replace(' ', ''))}
                             </span>
                         </div>
 
@@ -346,7 +348,7 @@ export default function Forecast() {
                                 <span className="text-xs text-gray-400 font-normal"> mm</span>
                             </span>
                             <span className="text-[10px] text-gray-400 mt-0.5">
-                                {data.rainfall_forecast.forecast_days}-Day Forecast
+                                {data.rainfall_forecast.forecast_days}-{t('forecast.dayForecast')}
                             </span>
                         </div>
 
@@ -368,7 +370,7 @@ export default function Forecast() {
                                         : '—'}
                                 </span>
                             </div>
-                            <span className="text-[10px] text-gray-400 mt-0.5">Max / Min</span>
+                            <span className="text-[10px] text-gray-400 mt-0.5">{t('forecast.maxMin')}</span>
                         </div>
                     </div>
                 </div>
@@ -377,7 +379,7 @@ export default function Forecast() {
                 <div className="mt-6 px-4">
                     <h2 className="text-gray-300 text-xs font-semibold uppercase tracking-widest mb-3 flex items-center gap-2">
                         <span className="w-1 h-1 rounded-full bg-red-400"></span>
-                        Disaster Risk Assessment
+                        {t('forecast.disasterRisk')}
                     </h2>
 
                     <div className="glass-panel-dark rounded-2xl border border-white/10 p-4 space-y-5">
@@ -386,10 +388,10 @@ export default function Forecast() {
                             <div className="flex items-center justify-between mb-2">
                                 <div className="flex items-center gap-2">
                                     <Droplets size={14} className="text-blue-400" />
-                                    <span className="text-sm text-gray-200">Flood Risk</span>
+                                    <span className="text-sm text-gray-200">{t('forecast.floodRisk')}</span>
                                 </div>
                                 <span className={`text-xs font-semibold ${riskTextColor(floodRisk)}`}>
-                                    {riskLabel(floodRisk)} · {floodRisk}%
+                                    {t(riskLabelKey(floodRisk))} · {floodRisk}%
                                 </span>
                             </div>
                             <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
@@ -405,10 +407,10 @@ export default function Forecast() {
                             <div className="flex items-center justify-between mb-2">
                                 <div className="flex items-center gap-2">
                                     <CloudRain size={14} className="text-amber-400" />
-                                    <span className="text-sm text-gray-200">Drought Risk</span>
+                                    <span className="text-sm text-gray-200">{t('forecast.droughtRisk')}</span>
                                 </div>
                                 <span className={`text-xs font-semibold ${riskTextColor(droughtRisk)}`}>
-                                    {riskLabel(droughtRisk)} · {droughtRisk}%
+                                    {t(riskLabelKey(droughtRisk))} · {droughtRisk}%
                                 </span>
                             </div>
                             <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
@@ -424,10 +426,10 @@ export default function Forecast() {
                             <div className="flex items-center justify-between mb-2">
                                 <div className="flex items-center gap-2">
                                     <Flame size={14} className="text-orange-400" />
-                                    <span className="text-sm text-gray-200">Heat Stress</span>
+                                    <span className="text-sm text-gray-200">{t('forecast.heatStress')}</span>
                                 </div>
                                 <span className={`text-xs font-semibold ${riskTextColor(heatRisk)}`}>
-                                    {riskLabel(heatRisk)} · {heatRisk}%
+                                    {t(riskLabelKey(heatRisk))} · {heatRisk}%
                                 </span>
                             </div>
                             <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
@@ -443,7 +445,7 @@ export default function Forecast() {
                 {/* ─── Data Freshness ────────────────────────────────── */}
                 <div className="mt-5 px-4 mb-4">
                     <p className="text-[10px] text-gray-500 text-center">
-                        Powered by Google Earth Engine · Sentinel-2 · NOAA/GFS
+                        {t('forecast.poweredBy')}
                     </p>
                 </div>
 
