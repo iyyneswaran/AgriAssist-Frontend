@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Folder, MapPin, Droplet, Sun, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import { Folder, MapPin, Droplet, Sun, ChevronDown, ChevronUp } from 'lucide-react';
 import BottomNav from '../components/BottomNav';
 import { useAuth } from '../context/AuthContext';
 import { getMyLand } from '../services/landService';
@@ -117,8 +117,41 @@ export default function FarmDetails() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-black flex items-center justify-center">
-                <Loader2 className="animate-spin text-green-500" size={32} />
+            <div className="relative min-h-screen w-full overflow-hidden flex justify-center bg-black">
+                {/* Background */}
+                <div
+                    className="fixed inset-0 z-0 bg-cover bg-center bg-no-repeat opacity-40 blur-sm mix-blend-screen pointer-events-none"
+                    style={{ backgroundImage: 'url("https://images.unsplash.com/photo-1595841696677-6489ff3f8cd1?q=80&w=1000&auto=format&fit=crop")' }}
+                ></div>
+                <div className="fixed inset-0 z-0 bg-gradient-to-t from-[#021102]/90 via-[#051805]/70 to-black/80 pointer-events-none"></div>
+
+                {/* Skeleton Content */}
+                <div className="relative z-10 w-full max-w-md h-full flex flex-col pb-32 overflow-y-auto hide-scrollbar">
+                    {/* Header Pill Skeleton */}
+                    <div className="pt-6 px-4">
+                        <div className="h-8 w-32 rounded-full bg-white/10 animate-pulse border border-white/5"></div>
+                    </div>
+
+                    {/* Field Cards Skeleton */}
+                    <div className="mt-6 px-4 space-y-4">
+                        {[1, 2, 3].map((i) => (
+                            <div key={i} className="glass-panel-dark border border-white/10 rounded-3xl p-5 overflow-hidden relative">
+                                {/* Shimmer animation */}
+                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full animate-[shimmer_2s_infinite]"></div>
+
+                                <div className="flex items-start gap-3">
+                                    <div className="w-6 h-6 rounded bg-white/10 animate-pulse shrink-0"></div>
+                                    <div className="space-y-2 flex-1">
+                                        <div className="h-5 w-1/2 bg-white/10 rounded animate-pulse"></div>
+                                        <div className="h-3 w-1/3 bg-white/5 rounded animate-pulse"></div>
+                                    </div>
+                                    <div className="w-5 h-5 rounded-full bg-white/5 animate-pulse shrink-0"></div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+                <BottomNav />
             </div>
         );
     }

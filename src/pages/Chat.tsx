@@ -235,36 +235,41 @@ export default function Chat() {
 
                 {/* Input Bar */}
                 <div className="px-4 pb-4 mt-auto">
-                    <div className="relative flex items-center w-full glass-panel-dark border border-white/20 rounded-full pl-6 pr-2 py-2">
-                        <input
-                            type="text"
-                            value={inputText}
-                            onChange={(e) => setInputText(e.target.value)}
-                            placeholder={activeConversationId && !isConnected ? t('chat.reconnecting') : t('chat.askAgriAssist')}
-                            disabled={!!(activeConversationId && !isConnected)}
-                            className="flex-1 bg-transparent text-white placeholder-white/50 focus:outline-none text-sm disabled:opacity-50"
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter') handleSend();
-                            }}
-                        />
-                        <div className="flex items-center gap-2">
-                            <button
+                    <div className="relative group">
+                        {/* Animated gradient outline - Greenish sparkle */}
+                        <div className="absolute -inset-0.5 bg-gradient-to-r from-green-400 via-emerald-500 to-teal-400 rounded-full blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200 animate-pulse"></div>
+
+                        <div className="relative flex items-center w-full bg-black/40 backdrop-blur-xl border border-white/20 shadow-[0_8px_32px_0_rgba(31,38,135,0.37)] rounded-full pl-6 pr-2 py-2">
+                            <input
+                                type="text"
+                                value={inputText}
+                                onChange={(e) => setInputText(e.target.value)}
+                                placeholder={activeConversationId && !isConnected ? t('chat.reconnecting') : t('chat.askAgriAssist')}
                                 disabled={!!(activeConversationId && !isConnected)}
-                                onClick={() => setIsVoiceOverlayOpen(true)}
-                                className="p-2 text-white/70 hover:text-white transition disabled:opacity-50"
-                            >
-                                <Mic size={20} />
-                            </button>
-                            <button
-                                className={`w-8 h-8 rounded-full flex items-center justify-center transition ${inputText.trim() && (!activeConversationId || isConnected)
-                                    ? 'bg-green-500 text-white hover:bg-green-400'
-                                    : 'bg-white/20 text-white/50 cursor-not-allowed'
-                                    }`}
-                                disabled={!inputText.trim() || !!(activeConversationId && !isConnected)}
-                                onClick={handleSend}
-                            >
-                                <ArrowUp size={18} />
-                            </button>
+                                className="flex-1 bg-transparent text-white placeholder-white/50 focus:outline-none text-sm disabled:opacity-50"
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleSend();
+                                }}
+                            />
+                            <div className="flex items-center gap-2">
+                                <button
+                                    disabled={!!(activeConversationId && !isConnected)}
+                                    onClick={() => setIsVoiceOverlayOpen(true)}
+                                    className="p-2 text-white/70 hover:text-white transition disabled:opacity-50"
+                                >
+                                    <Mic size={20} />
+                                </button>
+                                <button
+                                    className={`w-8 h-8 rounded-full flex items-center justify-center transition ${inputText.trim() && (!activeConversationId || isConnected)
+                                        ? 'bg-gradient-to-r from-green-500 to-emerald-400 text-white hover:from-green-400 hover:to-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.5)]'
+                                        : 'bg-white/10 text-white/40 cursor-not-allowed'
+                                        }`}
+                                    disabled={!inputText.trim() || !!(activeConversationId && !isConnected)}
+                                    onClick={handleSend}
+                                >
+                                    <ArrowUp size={18} />
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
