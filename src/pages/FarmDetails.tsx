@@ -225,7 +225,10 @@ export default function FarmDetails() {
                                 </button>
 
                                 {/* Expanded Detail Body */}
-                                {isExpanded && (
+                                <div
+                                    className={`transition-all duration-500 ease-in-out overflow-hidden ${isExpanded ? 'max-h-[800px] opacity-100' : 'max-h-0 opacity-0'
+                                        }`}
+                                >
                                     <div className="px-5 pb-5 relative">
                                         {/* Decorative glows */}
                                         <div className="absolute top-0 right-0 w-48 h-48 bg-green-500/10 blur-[60px] rounded-full pointer-events-none"></div>
@@ -297,7 +300,7 @@ export default function FarmDetails() {
                                             )}
                                         </div>
                                     </div>
-                                )}
+                                </div>
 
                             </div>
                         );
