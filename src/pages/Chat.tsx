@@ -233,13 +233,9 @@ export default function Chat() {
 
                 </div>
 
-                {/* Input Bar */}
                 <div className="px-4 pb-4 mt-auto">
-                    <div className="relative group">
-                        {/* Animated gradient outline - Greenish sparkle */}
-                        <div className="absolute -inset-0.5 bg-gradient-to-r from-green-400 via-emerald-500 to-teal-400 rounded-full blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200 animate-pulse"></div>
-
-                        <div className="relative flex items-center w-full bg-black/40 backdrop-blur-xl border border-white/20 shadow-[0_8px_32px_0_rgba(31,38,135,0.37)] rounded-full pl-6 pr-2 py-2">
+                    <div className="spark-border">
+                        <div className="relative flex items-center w-full bg-black/40 backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_0_rgba(31,38,135,0.37)] rounded-full pl-6 pr-2 py-2">
                             <input
                                 type="text"
                                 value={inputText}
