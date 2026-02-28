@@ -21,9 +21,17 @@ export default function Home() {
                     <Header />
 
                     <div className="mt-8 mb-6">
-                        <h1 className="text-3xl font-semibold leading-tight tracking-wide">
-                            {t('home.farmingMade')} <span className="text-green-400">{t('home.simple')}</span><br />
-                            <span className="text-green-400">{t('home.smarter')}</span> {t('home.and')} <span className="text-green-300">{t('home.sustainable')}</span>
+                        <h1
+                            className="text-2xl font-semibold leading-tight tracking-wide"
+                            style={{
+                                background: 'linear-gradient(to right, #FFFFFF 46%, #D6F6CF 73%, #ADED9F 100%)',
+                                WebkitBackgroundClip: 'text',
+                                WebkitTextFillColor: 'transparent',
+                                backgroundClip: 'text',
+                            }}
+                        >
+                            {t('home.farmingMade')} {t('home.simple')}<br />
+                            {t('home.smarter')} {t('home.and')} {t('home.sustainable')}
                         </h1>
                     </div>
 
