@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { useAuth } from './AuthContext';
 
@@ -54,6 +54,10 @@ interface AppDataContextType {
 
 const AppDataContext = createContext<AppDataContextType | undefined>(undefined);
 
+// Max retry attempts for failed fetches
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = 3000;
+
 export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const { token } = useAuth();
 
@@ -82,11 +86,13 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
     const [conversations, setConversations] = useState<ChatHistoryItem[]>([]);
     const [conversationsLoading, setConversationsLoading] = useState(true);
 
-    // Track if initial fetch has happened
+    // Track if initial fetch has happened successfully
     const [hasFetched, setHasFetched] = useState(false);
+    const retryCountRef = useRef(0);
+    const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    const fetchCoreData = useCallback(async () => {
-        if (!token) return;
+    const fetchCoreData = useCallback(async (): Promise<boolean> => {
+        if (!token) return false;
 
         setLandLoading(true);
         setWeatherLoading(true);
@@ -120,12 +126,14 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
                 }
             }
             setWeatherLoading(false);
+            return true; // success
         } catch (err) {
             console.error('[AppData] Failed to fetch core data:', err);
             setLandLoading(false);
             setWeatherLoading(false);
             setCropsLoading(false);
             setFieldsLoading(false);
+            return false; // failed
         }
     }, [token]);
 
@@ -167,26 +175,50 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
         }
     }, [token]);
 
-    // Initial fetch — runs once when token becomes available
+    // Initial fetch with retry — runs once when token becomes available
     useEffect(() => {
         if (!token || hasFetched) return;
 
         const initAll = async () => {
-            await fetchCoreData();
-            // Fire geo and conversations in parallel (they don't depend on each other)
+            const coreSuccess = await fetchCoreData();
+
+            // Fire geo and conversations in parallel
             await Promise.all([
                 fetchGeoData(),
                 fetchConversations(),
             ]);
-            setHasFetched(true);
+
+            if (coreSuccess) {
+                // Data loaded successfully — mark as done, reset retry counter
+                setHasFetched(true);
+                retryCountRef.current = 0;
+            } else if (retryCountRef.current < MAX_RETRIES) {
+                // Core fetch failed — schedule a retry
+                retryCountRef.current += 1;
+                console.warn(`[AppData] Core fetch failed. Retrying (${retryCountRef.current}/${MAX_RETRIES}) in ${RETRY_DELAY_MS}ms...`);
+                retryTimerRef.current = setTimeout(() => {
+                    // Force re-run of this effect by not setting hasFetched
+                    setHasFetched(false);
+                }, RETRY_DELAY_MS);
+            } else {
+                // Exhausted retries — mark as done to stop looping
+                console.error('[AppData] Core fetch failed after max retries. Giving up.');
+                setHasFetched(true);
+                retryCountRef.current = 0;
+            }
         };
 
         initAll();
+
+        return () => {
+            if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+        };
     }, [token, hasFetched, fetchCoreData, fetchGeoData, fetchConversations]);
 
     // Refresh all (called after Profile save, etc.)
     const refreshAll = useCallback(async () => {
-        setHasFetched(false); // allow re-fetch
+        retryCountRef.current = 0;
+        setHasFetched(false);
         await fetchCoreData();
         await Promise.all([fetchGeoData(), fetchConversations()]);
         setHasFetched(true);
