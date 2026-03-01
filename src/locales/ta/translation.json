@@ -41,7 +41,8 @@
     },
     "actions": {
         "scanCrop": "பயிரை ஸ்கேன் செய்க",
-        "aiAssistant": "AI உதவியாளர்"
+        "aiAssistant": "AI உதவியாளர்",
+        "schemes": "திட்டங்கள்"
     },
     "nav": {
         "home": "முகப்பு",

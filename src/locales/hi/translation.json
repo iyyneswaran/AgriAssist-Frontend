@@ -41,7 +41,8 @@
     },
     "actions": {
         "scanCrop": "फसल स्कैन करें",
-        "aiAssistant": "एआई सहायक"
+        "aiAssistant": "एआई सहायक",
+        "schemes": "योजनाओं"
     },
     "nav": {
         "home": "होम",

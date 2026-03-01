@@ -41,7 +41,8 @@
     },
     "actions": {
         "scanCrop": "Scan Crop",
-        "aiAssistant": "AI Assistant"
+        "aiAssistant": "AI Assistant",
+        "schemes": "Schemes"
     },
     "nav": {
         "home": "Home",
