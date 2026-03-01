@@ -1,54 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { MapPin, Sun, Droplets, Wind, CloudRain, CloudLightning, Snowflake, Cloud } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
-import { getMyLand } from '../services/landService';
-import { getWeather } from '../services/weatherService';
-import type { WeatherData } from '../services/weatherService';
+import { useAppData } from '../context/AppDataContext';
 import { useTranslation } from 'react-i18next';
 
 const WeatherSection: React.FC = () => {
-  const { token } = useAuth();
   const { t } = useTranslation();
-  const [weather, setWeather] = useState<WeatherData | null>(null);
-  const [locationName, setLocationName] = useState(t('weather.fetchingLocation'));
-  const [loading, setLoading] = useState(true);
+  const { weather, land, weatherLoading, landLoading } = useAppData();
+
+  const loading = weatherLoading || landLoading;
 
   // Format current date nicely
   const today = new Date();
   const dateString = today.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   const timeString = today.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }).toLowerCase();
 
-  useEffect(() => {
-    const fetchWeather = async () => {
-      if (!token) return;
-      try {
-        // 1. Get farmer's land for coordinates
-        const land = await getMyLand(token);
-
-        let lat = 13.0827; // Default Chennai
-        let lng = 80.2707;
-
-        if (land) {
-          lat = land.latitude;
-          lng = land.longitude;
-          setLocationName(`${land.district}, ${land.state}`);
-        } else {
-          setLocationName('Default Location');
-        }
-
-        // 2. Fetch live weather
-        const weatherData = await getWeather(lat, lng);
-        setWeather(weatherData);
-
-      } catch (err) {
-        console.error("Failed to load weather:", err);
-        setLocationName(t('weather.weatherUnavailable'));
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchWeather();
-  }, [token]);
+  const locationName = land ? `${land.district}, ${land.state}` : t('weather.fetchingLocation');
 
   if (loading) {
     return (
@@ -146,7 +112,7 @@ const WeatherSection: React.FC = () => {
             <p className="text-[10px] text-gray-400 mt-1">{dateString} | {timeString}</p>
 
             <div className={`mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full ${getWeatherColorClass(weather?.conditionName ?? 'Unknown')}`}>
-              <WeatherIcon size={12} className="text-current fill-current" /> {/* text-current and fill-current will inherit color from parent */}
+              <WeatherIcon size={12} className="text-current fill-current" />
               <span className="text-xs font-medium">{weather?.conditionName ?? 'Unknown'}</span>
             </div>
           </div>

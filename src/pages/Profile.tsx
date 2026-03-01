@@ -11,6 +11,7 @@ import { listCrops, assignCrop, getActiveCrops } from '../services/cropService';
 import type { Crop } from '../services/cropService';
 import { addField, getMyFields } from '../services/fieldService';
 import { useTranslation } from 'react-i18next';
+import { useAppData } from '../context/AppDataContext';
 
 interface NewFieldInput {
     name: string;
@@ -29,6 +30,7 @@ export default function Profile() {
     const navigate = useNavigate();
     const { token } = useAuth();
     const { t } = useTranslation();
+    const { refreshAll } = useAppData();
 
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -212,6 +214,8 @@ export default function Profile() {
             setNewFields([]);
 
             alert('Profile saved successfully!');
+            // Refresh cached data in context so other pages reflect the changes
+            refreshAll();
             navigate(-1);
         } catch (error: any) {
             console.error("Failed to save:", error);

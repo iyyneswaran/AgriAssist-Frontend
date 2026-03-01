@@ -3,9 +3,9 @@ import BottomNav from '../components/BottomNav';
 import { Menu, Mic, Star, ArrowUp } from 'lucide-react';
 import ChatSidebar from '../components/ChatSidebar';
 import VoiceChatOverlay from '../components/VoiceChatOverlay';
-import type { ChatHistoryItem } from '../components/ChatSidebar';
 import { useAuth } from '../context/AuthContext';
-import { getMyConversations, startConversation, getConversationMessages, deleteConversation } from '../services/chatService';
+import { useAppData } from '../context/AppDataContext';
+import { startConversation, getConversationMessages, deleteConversation, getMyConversations } from '../services/chatService';
 import type { ChatMessage } from '../services/chatService';
 import { useChatWebSocket } from '../hooks/useChatWebSocket';
 import { useTranslation } from 'react-i18next';
@@ -14,10 +14,12 @@ export default function Chat() {
     const { token } = useAuth();
     const { t } = useTranslation();
 
+    // Context data
+    const { conversations: chats, setConversations: setChats } = useAppData();
+
     // Sidebar & History State
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [isVoiceOverlayOpen, setIsVoiceOverlayOpen] = useState(false);
-    const [chats, setChats] = useState<ChatHistoryItem[]>([]);
 
     // Current Conversation State
     const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
@@ -29,20 +31,6 @@ export default function Chat() {
     const { isConnected, isStreaming, aiMessageStream, wsError, sendMessage, connectAndSend, clearStream } = useChatWebSocket(activeConversationId, token);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
-
-    // Fetch initial chat history
-    useEffect(() => {
-        if (!token) return;
-        const fetchChats = async () => {
-            try {
-                const res = await getMyConversations(token, 1, 50);
-                setChats(res.data);
-            } catch (err) {
-                console.error("Failed to load chats:", err);
-            }
-        };
-        fetchChats();
-    }, [token]);
 
     // Fetch messages when a conversation is selected
     useEffect(() => {

@@ -9,6 +9,7 @@ import Forecast from "./pages/Forecast";
 import ScanCrop from "./pages/ScanCrop";
 import Profile from "./pages/Profile";
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { AppDataProvider } from './context/AppDataContext';
 
 // Simple protected route wrapper
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -34,60 +35,62 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 export default function App() {
   return (
     <AuthProvider>
-      <Router>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<SignUp />} />
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <Home />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/chat"
-            element={
-              <ProtectedRoute>
-                <Chat />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/forecast"
-            element={
-              <ProtectedRoute>
-                <Forecast />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/farm-details"
-            element={
-              <ProtectedRoute>
-                <FarmDetails />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/scan-crop"
-            element={
-              <ProtectedRoute>
-                <ScanCrop />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/profile"
-            element={
-              <ProtectedRoute>
-                <Profile />
-              </ProtectedRoute>
-            }
-          />
-        </Routes>
-      </Router>
+      <AppDataProvider>
+        <Router>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<SignUp />} />
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <Home />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/chat"
+              element={
+                <ProtectedRoute>
+                  <Chat />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/forecast"
+              element={
+                <ProtectedRoute>
+                  <Forecast />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/farm-details"
+              element={
+                <ProtectedRoute>
+                  <FarmDetails />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/scan-crop"
+              element={
+                <ProtectedRoute>
+                  <ScanCrop />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute>
+                  <Profile />
+                </ProtectedRoute>
+              }
+            />
+          </Routes>
+        </Router>
+      </AppDataProvider>
     </AuthProvider>
   );
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
     ShieldAlert,
     Leaf,
@@ -12,11 +12,8 @@ import {
     CheckCircle2,
 } from 'lucide-react';
 import BottomNav from '../components/BottomNav';
-import { getMyLand } from '../services/landService';
-import { analyzeGeo } from '../services/geoService';
-import type { GeoAnalysisData } from '../services/geoService';
+import { useAppData } from '../context/AppDataContext';
 import { useTranslation } from 'react-i18next';
-import { useAuth } from '../context/AuthContext';
 
 // ─── Risk calculator helpers ────────────────────────────────────────────
 function calcFloodRisk(rainfallMm: number): number {
@@ -94,42 +91,17 @@ function ndviRingColor(status: string): string {
 }
 
 export default function Forecast() {
-    const { token } = useAuth();
     const { t } = useTranslation();
-    const [data, setData] = useState<GeoAnalysisData | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [locationName, setLocationName] = useState('');
+    const { land, geoData: data, geoLoading: loading, geoError: error, refreshGeo } = useAppData();
     const [refreshing, setRefreshing] = useState(false);
 
-    const fetchData = async (isRefresh = false) => {
-        if (!token) return;
-        if (isRefresh) setRefreshing(true);
-        else setLoading(true);
-        setError(null);
+    const locationName = land ? `${land.district}, ${land.state}` : '';
 
-        try {
-            const land = await getMyLand(token);
-            if (!land) {
-                setError('no_land');
-                return;
-            }
-
-            setLocationName(`${land.district}, ${land.state}`);
-            const result = await analyzeGeo(land.latitude, land.longitude);
-            setData(result);
-        } catch (err: any) {
-            console.error('Forecast fetch error:', err);
-            setError(err.message || 'Failed to load forecast data');
-        } finally {
-            setLoading(false);
-            setRefreshing(false);
-        }
+    const handleRefresh = async () => {
+        setRefreshing(true);
+        await refreshGeo();
+        setRefreshing(false);
     };
-
-    useEffect(() => {
-        fetchData();
-    }, [token]);
 
     // ─── Loading State ──────────────────────────────────────────────────
     if (loading) {
@@ -223,7 +195,7 @@ export default function Forecast() {
                         <h2 className="text-white text-lg font-medium mb-2">{t('forecast.analysisFailed')}</h2>
                         <p className="text-gray-400 text-sm mb-4">{error || 'Could not fetch forecast data.'}</p>
                         <button
-                            onClick={() => fetchData()}
+                            onClick={handleRefresh}
                             className="px-5 py-2 rounded-full bg-green-500/20 text-green-400 text-sm font-medium border border-green-500/30 hover:bg-green-500/30 transition"
                         >
                             {t('forecast.tryAgain')}
@@ -261,7 +233,7 @@ export default function Forecast() {
                         </div>
                     </div>
                     <button
-                        onClick={() => fetchData(true)}
+                        onClick={handleRefresh}
                         disabled={refreshing}
                         className="p-2 rounded-full bg-white/10 border border-white/10 text-gray-400 hover:text-white hover:bg-white/20 transition disabled:opacity-50"
                     >

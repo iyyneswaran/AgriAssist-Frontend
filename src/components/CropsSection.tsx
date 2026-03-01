@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { getActiveCrops } from '../services/cropService';
+import React from 'react';
 import type { CropAssignment } from '../services/cropService';
-import { useAuth } from '../context/AuthContext';
+import { useAppData } from '../context/AppDataContext';
 import { useTranslation } from 'react-i18next';
 
 // Crop image mapper (using Vite's new URL for static assets or direct imports if small)
@@ -42,25 +41,8 @@ const calculateStage = (sowingDate: string, growthDays: number, t: any): string 
 };
 
 const CropsSection: React.FC = () => {
-  const { token } = useAuth();
   const { t } = useTranslation();
-  const [crops, setCrops] = useState<CropAssignment[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchCrops = async () => {
-      if (!token) return;
-      try {
-        const assignments = await getActiveCrops(token);
-        setCrops(assignments);
-      } catch (err) {
-        console.error("Failed to load crops:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchCrops();
-  }, [token]);
+  const { activeCrops: crops, cropsLoading: loading } = useAppData();
 
   if (loading) {
     return <div className="animate-pulse h-20 bg-white/5 rounded-xl"></div>;
@@ -81,7 +63,7 @@ const CropsSection: React.FC = () => {
     <div>
       <h3 className="text-sm font-medium text-gray-200 mb-3">{t('crops.yourCrops')}</h3>
       <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
-        {crops.map((assignment) => (
+        {crops.map((assignment: CropAssignment) => (
           <div key={assignment.id} className="glass-panel-dark p-3 rounded-xl flex items-center gap-3 min-w-[200px] flex-1 border border-white/5 shrink-0 shadow-lg">
             <img
               src={getCropImage(assignment.crop.name)}

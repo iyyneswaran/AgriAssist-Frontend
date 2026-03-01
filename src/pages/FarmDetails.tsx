@@ -1,13 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Folder, MapPin, Droplet, Sun, ChevronDown, ChevronUp } from 'lucide-react';
 import BottomNav from '../components/BottomNav';
-import { useAuth } from '../context/AuthContext';
-import { getMyLand } from '../services/landService';
-import { getMyFields } from '../services/fieldService';
-import { getActiveCrops } from '../services/cropService';
+import { useAppData } from '../context/AppDataContext';
 import type { CropAssignment } from '../services/cropService';
-import { getWeather } from '../services/weatherService';
-import type { WeatherData } from '../services/weatherService';
 import { useTranslation } from 'react-i18next';
 
 // Crop image mapper from local assets
@@ -48,13 +43,15 @@ interface FieldCardData {
 }
 
 export default function FarmDetails() {
-    const { token } = useAuth();
     const { t } = useTranslation();
-    const [loading, setLoading] = useState(true);
-    const [farmLocation, setFarmLocation] = useState({ district: '', state: '', soilType: '' });
-    const [fieldCards, setFieldCards] = useState<FieldCardData[]>([]);
+    const { land, weather, fields, activeCrops, isDataReady } = useAppData();
     const [expandedIndex, setExpandedIndex] = useState<number | null>(0);
-    const [weather, setWeather] = useState<WeatherData | null>(null);
+
+    const loading = !isDataReady;
+
+    const farmLocation = land
+        ? { district: land.district, state: land.state, soilType: land.soilType }
+        : { district: '', state: '', soilType: '' };
 
     const mapSoilType = (type: string) => {
         if (!type) return '—';
@@ -65,44 +62,16 @@ export default function FarmDetails() {
         return type;
     };
 
-    useEffect(() => {
-        const fetchData = async () => {
-            if (!token) return;
-            try {
-                // Fetch land, fields, active assignments, and weather in parallel
-                const [land, fields, assignments] = await Promise.all([
-                    getMyLand(token),
-                    getMyFields(token).catch(() => []),
-                    getActiveCrops(token).catch(() => []),
-                ]);
-
-                if (land) {
-                    setFarmLocation({ district: land.district, state: land.state, soilType: land.soilType });
-                    // Fetch weather for this location
-                    const w = await getWeather(land.latitude, land.longitude).catch(() => null);
-                    setWeather(w);
-                }
-
-                // Map fields to cards, attaching their active assignment if any
-                const cards: FieldCardData[] = fields.map((field: any) => {
-                    const assignment = assignments.find((a: any) => a.fieldId === field.id);
-                    return {
-                        fieldId: field.id,
-                        fieldName: field.name,
-                        fieldArea: field.area,
-                        assignment,
-                    };
-                });
-
-                setFieldCards(cards);
-            } catch (err) {
-                console.error("Failed to load farm details:", err);
-            } finally {
-                setLoading(false);
-            }
+    // Map fields to cards, attaching their active assignment if any
+    const fieldCards: FieldCardData[] = fields.map((field: any) => {
+        const assignment = activeCrops.find((a: any) => a.fieldId === field.id);
+        return {
+            fieldId: field.id,
+            fieldName: field.name,
+            fieldArea: field.area,
+            assignment,
         };
-        fetchData();
-    }, [token]);
+    });
 
     const toggleCard = (index: number) => {
         setExpandedIndex(expandedIndex === index ? null : index);
