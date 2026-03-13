@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, MapPin, Loader2, Save, Plus, Trash2 } from 'lucide-react';
+import { ChevronLeft, MapPin, Loader2, Save, Plus, Trash2, LocateFixed, Pencil, Check, X } from 'lucide-react';
 import BottomNav from '../components/BottomNav';
 import { useAuth } from '../context/AuthContext';
 import { getProfile, updateProfile } from '../services/userService';
@@ -60,6 +60,16 @@ export default function Profile() {
     const [corners, setCorners] = useState<CornerCoord[]>([]);
     const [isLocating, setIsLocating] = useState(false);
     const [isGeoLocating, setIsGeoLocating] = useState(false);
+
+    // Manual entry mode state
+    const [locationMode, setLocationMode] = useState<'auto' | 'manual'>('auto');
+    const [manualLat, setManualLat] = useState('');
+    const [manualLng, setManualLng] = useState('');
+
+    // Inline editing state
+    const [editingCornerIndex, setEditingCornerIndex] = useState<number | null>(null);
+    const [editLat, setEditLat] = useState('');
+    const [editLng, setEditLng] = useState('');
 
     // Initial Fetch
     useEffect(() => {
@@ -143,7 +153,7 @@ export default function Profile() {
     }, [corners]);
 
     // Add a corner using device GPS
-    const handleAddCorner = () => {
+    const handleAddCornerGPS = () => {
         setIsLocating(true);
         if ("geolocation" in navigator) {
             navigator.geolocation.getCurrentPosition(
@@ -168,8 +178,53 @@ export default function Profile() {
         }
     };
 
+    // Add a corner manually
+    const handleAddCornerManual = () => {
+        const lat = parseFloat(manualLat);
+        const lng = parseFloat(manualLng);
+        if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+            alert('Please enter valid coordinates. Lat: -90 to 90, Lng: -180 to 180');
+            return;
+        }
+        const newCorner: CornerCoord = {
+            lat: parseFloat(lat.toFixed(6)),
+            lng: parseFloat(lng.toFixed(6)),
+        };
+        setCorners(prev => [...prev, newCorner]);
+        setManualLat('');
+        setManualLng('');
+    };
+
+    // Start editing a corner inline
+    const startEditCorner = (index: number) => {
+        setEditingCornerIndex(index);
+        setEditLat(corners[index].lat.toString());
+        setEditLng(corners[index].lng.toString());
+    };
+
+    // Save inline edit
+    const saveEditCorner = () => {
+        if (editingCornerIndex === null) return;
+        const lat = parseFloat(editLat);
+        const lng = parseFloat(editLng);
+        if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+            alert('Invalid coordinates.');
+            return;
+        }
+        setCorners(prev => prev.map((c, i) =>
+            i === editingCornerIndex ? { lat: parseFloat(lat.toFixed(6)), lng: parseFloat(lng.toFixed(6)) } : c
+        ));
+        setEditingCornerIndex(null);
+    };
+
+    // Cancel inline edit
+    const cancelEditCorner = () => {
+        setEditingCornerIndex(null);
+    };
+
     const removeCorner = (index: number) => {
         setCorners(prev => prev.filter((_, i) => i !== index));
+        if (editingCornerIndex === index) setEditingCornerIndex(null);
     };
 
     const handleSave = async () => {
@@ -371,46 +426,152 @@ export default function Profile() {
                     <div className="glass-panel-dark border border-white/10 rounded-3xl p-6 shadow-2xl">
                         <div className="flex justify-between items-center mb-4">
                             <h2 className="text-white text-lg font-medium">{t('profile.location')}</h2>
-                            <button onClick={handleAddCorner} disabled={isLocating}
-                                className="flex items-center gap-1.5 text-xs bg-green-500/20 text-green-400 px-3 py-1.5 rounded-full hover:bg-green-500/30 transition-colors border border-green-500/30">
-                                {isLocating ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
-                                Add Corner
+                        </div>
+
+                        {/* Mode Toggle */}
+                        <div className="flex gap-2 mb-4">
+                            <button
+                                onClick={() => setLocationMode('auto')}
+                                className={`flex-1 flex items-center justify-center gap-1.5 text-xs px-3 py-2.5 rounded-xl transition-all border ${
+                                    locationMode === 'auto'
+                                        ? 'bg-green-500/20 text-green-400 border-green-500/30 shadow-[0_0_12px_rgba(34,197,94,0.15)]'
+                                        : 'bg-white/5 text-gray-400 border-white/10 hover:bg-white/10'
+                                }`}
+                            >
+                                <LocateFixed size={13} />
+                                📍 Auto Detect
+                            </button>
+                            <button
+                                onClick={() => setLocationMode('manual')}
+                                className={`flex-1 flex items-center justify-center gap-1.5 text-xs px-3 py-2.5 rounded-xl transition-all border ${
+                                    locationMode === 'manual'
+                                        ? 'bg-green-500/20 text-green-400 border-green-500/30 shadow-[0_0_12px_rgba(34,197,94,0.15)]'
+                                        : 'bg-white/5 text-gray-400 border-white/10 hover:bg-white/10'
+                                }`}
+                            >
+                                <Pencil size={13} />
+                                ✏️ Manual Entry
                             </button>
                         </div>
 
-                        <p className="text-gray-500 text-[11px] mb-4">
-                            Walk to each corner of your farm and tap "Add Corner" to pin your GPS location. At least 3 corners are required.
-                        </p>
+                        {/* Auto Detect Mode */}
+                        {locationMode === 'auto' && (
+                            <div className="mb-4">
+                                <p className="text-gray-500 text-[11px] mb-3">
+                                    Walk to each corner of your farm and tap "Add Corner" to pin your GPS location. At least 3 corners required.
+                                </p>
+                                <button onClick={handleAddCornerGPS} disabled={isLocating}
+                                    className="w-full flex items-center justify-center gap-2 text-sm bg-green-500/20 text-green-400 px-4 py-3 rounded-xl hover:bg-green-500/30 transition-colors border border-green-500/30">
+                                    {isLocating ? <Loader2 size={14} className="animate-spin" /> : <LocateFixed size={14} />}
+                                    {isLocating ? 'Detecting GPS...' : 'Add Corner (GPS)'}
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Manual Entry Mode */}
+                        {locationMode === 'manual' && (
+                            <div className="mb-4">
+                                <p className="text-gray-500 text-[11px] mb-3">
+                                    Enter the latitude and longitude for each corner of your farm. At least 3 corners required.
+                                </p>
+                                <div className="grid grid-cols-2 gap-3 mb-3">
+                                    <div>
+                                        <label className="text-[10px] text-gray-500 ml-1">Latitude</label>
+                                        <input
+                                            type="number"
+                                            step="0.000001"
+                                            value={manualLat}
+                                            onChange={(e) => setManualLat(e.target.value)}
+                                            className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm font-mono focus:outline-none focus:border-green-500/50 mt-1 placeholder-gray-600"
+                                            placeholder="e.g. 11.0168"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] text-gray-500 ml-1">Longitude</label>
+                                        <input
+                                            type="number"
+                                            step="0.000001"
+                                            value={manualLng}
+                                            onChange={(e) => setManualLng(e.target.value)}
+                                            className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm font-mono focus:outline-none focus:border-green-500/50 mt-1 placeholder-gray-600"
+                                            placeholder="e.g. 76.9558"
+                                        />
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={handleAddCornerManual}
+                                    disabled={!manualLat || !manualLng}
+                                    className="w-full flex items-center justify-center gap-2 text-sm bg-green-500/20 text-green-400 px-4 py-3 rounded-xl hover:bg-green-500/30 transition-colors border border-green-500/30 disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                    <Plus size={14} />
+                                    Add Corner
+                                </button>
+                            </div>
+                        )}
 
                         {/* Corner List */}
                         {corners.length === 0 ? (
                             <div className="text-center py-6">
                                 <MapPin size={28} className="text-gray-600 mx-auto mb-2" />
                                 <p className="text-gray-500 text-xs">No corners mapped yet</p>
-                                <p className="text-gray-600 text-[10px] mt-1">Go to the first corner of your farm and tap "Add Corner"</p>
+                                <p className="text-gray-600 text-[10px] mt-1">
+                                    {locationMode === 'auto'
+                                        ? 'Go to the first corner of your farm and tap the button above'
+                                        : 'Enter lat/lng above and click "Add Corner"'
+                                    }
+                                </p>
                             </div>
                         ) : (
                             <div className="space-y-2 mb-4">
                                 {corners.map((corner, index) => (
                                     <div key={index}
                                         className="flex items-center justify-between bg-white/5 border border-white/5 rounded-xl px-4 py-3">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-7 h-7 rounded-full bg-green-500/20 border border-green-500/30 flex items-center justify-center text-green-400 text-xs font-bold">
+                                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                                            <div className="w-7 h-7 rounded-full bg-green-500/20 border border-green-500/30 flex items-center justify-center text-green-400 text-xs font-bold shrink-0">
                                                 {index + 1}
                                             </div>
-                                            <div>
-                                                <p className="text-white text-sm font-mono">
-                                                    {corner.lat}, {corner.lng}
-                                                </p>
-                                                <p className="text-gray-500 text-[10px]">Corner {index + 1}</p>
-                                            </div>
+                                            {editingCornerIndex === index ? (
+                                                /* Inline Edit Mode */
+                                                <div className="flex items-center gap-2 flex-1">
+                                                    <input
+                                                        type="number" step="0.000001" value={editLat}
+                                                        onChange={(e) => setEditLat(e.target.value)}
+                                                        className="w-24 bg-black/60 border border-green-500/30 rounded-lg px-2 py-1.5 text-white text-xs font-mono focus:outline-none"
+                                                    />
+                                                    <input
+                                                        type="number" step="0.000001" value={editLng}
+                                                        onChange={(e) => setEditLng(e.target.value)}
+                                                        className="w-24 bg-black/60 border border-green-500/30 rounded-lg px-2 py-1.5 text-white text-xs font-mono focus:outline-none"
+                                                    />
+                                                    <button onClick={saveEditCorner} className="text-green-400 hover:text-green-300 p-1"><Check size={14} /></button>
+                                                    <button onClick={cancelEditCorner} className="text-gray-400 hover:text-gray-300 p-1"><X size={14} /></button>
+                                                </div>
+                                            ) : (
+                                                /* Display Mode */
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-white text-sm font-mono truncate">
+                                                        {corner.lat}, {corner.lng}
+                                                    </p>
+                                                    <p className="text-gray-500 text-[10px]">Corner {index + 1}</p>
+                                                </div>
+                                            )}
                                         </div>
-                                        <button
-                                            onClick={() => removeCorner(index)}
-                                            className="text-red-400/60 hover:text-red-400 transition-colors p-1"
-                                        >
-                                            <Trash2 size={14} />
-                                        </button>
+                                        {editingCornerIndex !== index && (
+                                            <div className="flex items-center gap-1">
+                                                <button
+                                                    onClick={() => startEditCorner(index)}
+                                                    className="text-gray-400/60 hover:text-blue-400 transition-colors p-1"
+                                                >
+                                                    <Pencil size={13} />
+                                                </button>
+                                                <button
+                                                    onClick={() => removeCorner(index)}
+                                                    className="text-red-400/60 hover:text-red-400 transition-colors p-1"
+                                                >
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
                             </div>

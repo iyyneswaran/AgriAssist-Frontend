@@ -5,14 +5,85 @@ import ChatSidebar from '../components/ChatSidebar';
 import VoiceChatOverlay from '../components/VoiceChatOverlay';
 import { useAuth } from '../context/AuthContext';
 import { useAppData } from '../context/AppDataContext';
-import { startConversation, getConversationMessages, deleteConversation, getMyConversations } from '../services/chatService';
+import { startConversation, getConversationMessages, deleteConversation, getMyConversations, addMessage } from '../services/chatService';
 import type { ChatMessage } from '../services/chatService';
-import { useChatWebSocket } from '../hooks/useChatWebSocket';
 import { useTranslation } from 'react-i18next';
+import ReactMarkdown from 'react-markdown';
+import type { Components } from 'react-markdown';
+
+// Custom markdown components for styled AI responses
+const markdownComponents: Components = {
+    h1: ({ children }) => (
+        <h1 className="text-base font-bold text-white mt-3 mb-1.5">{children}</h1>
+    ),
+    h2: ({ children }) => (
+        <h2 className="text-sm font-bold text-white mt-3 mb-1.5">{children}</h2>
+    ),
+    h3: ({ children }) => (
+        <h3 className="text-sm font-semibold text-green-400 mt-2.5 mb-1">{children}</h3>
+    ),
+    p: ({ children }) => (
+        <p className="text-sm leading-relaxed mb-2 text-white/90">{children}</p>
+    ),
+    ul: ({ children }) => (
+        <ul className="space-y-1 mb-2 ml-1">{children}</ul>
+    ),
+    ol: ({ children }) => (
+        <ol className="space-y-1 mb-2 ml-1 list-decimal list-inside">{children}</ol>
+    ),
+    li: ({ children }) => (
+        <li className="text-sm text-white/85 leading-relaxed flex gap-2">
+            <span className="text-green-400 mt-0.5 shrink-0">•</span>
+            <span>{children}</span>
+        </li>
+    ),
+    strong: ({ children }) => (
+        <strong className="font-semibold text-white">{children}</strong>
+    ),
+    em: ({ children }) => (
+        <em className="italic text-white/70">{children}</em>
+    ),
+    blockquote: ({ children }) => (
+        <blockquote className="border-l-2 border-green-500/50 pl-3 my-2 text-white/70 text-sm">
+            {children}
+        </blockquote>
+    ),
+    code: ({ children, className }) => {
+        const isInline = !className;
+        return isInline ? (
+            <code className="bg-white/10 text-green-300 px-1.5 py-0.5 rounded text-xs font-mono">{children}</code>
+        ) : (
+            <code className="block bg-black/40 border border-white/10 rounded-lg p-3 my-2 text-xs font-mono text-green-300 overflow-x-auto">{children}</code>
+        );
+    },
+    pre: ({ children }) => (
+        <pre className="my-2">{children}</pre>
+    ),
+    table: ({ children }) => (
+        <div className="overflow-x-auto my-2 rounded-lg border border-white/10">
+            <table className="w-full text-xs">{children}</table>
+        </div>
+    ),
+    thead: ({ children }) => (
+        <thead className="bg-white/5 border-b border-white/10">{children}</thead>
+    ),
+    th: ({ children }) => (
+        <th className="px-3 py-1.5 text-left text-green-400 font-medium text-[11px] uppercase tracking-wider">{children}</th>
+    ),
+    td: ({ children }) => (
+        <td className="px-3 py-1.5 text-white/80 border-t border-white/5">{children}</td>
+    ),
+    hr: () => (
+        <hr className="border-white/10 my-3" />
+    ),
+    a: ({ children, href }) => (
+        <a href={href} target="_blank" rel="noopener noreferrer" className="text-green-400 underline hover:text-green-300 transition">{children}</a>
+    ),
+};
 
 export default function Chat() {
     const { token } = useAuth();
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
 
     // Context data
     const { conversations: chats, setConversations: setChats } = useAppData();
@@ -27,8 +98,7 @@ export default function Chat() {
     const [inputText, setInputText] = useState('');
     const [isLoadingMessages, setIsLoadingMessages] = useState(false);
 
-    // WebSocket Hook
-    const { isConnected, isStreaming, aiMessageStream, wsError, sendMessage, connectAndSend, clearStream } = useChatWebSocket(activeConversationId, token);
+    const [isTyping, setIsTyping] = useState(false);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -52,25 +122,9 @@ export default function Chat() {
     // Auto-scroll to bottom
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages, aiMessageStream]);
+    }, [messages, isTyping]);
 
-    // Handle stream completion
-    useEffect(() => {
-        // If we just finished streaming, we need to append the final Stream as a standard message.
-        if (!isStreaming && aiMessageStream) {
-            const finalAiMessage: ChatMessage = {
-                id: Date.now().toString(), // fake id until next reload
-                conversationId: activeConversationId as string,
-                sender: 'AI',
-                messageType: 'TEXT',
-                textContent: aiMessageStream,
-                filePath: null,
-                createdAt: new Date().toISOString()
-            };
-            setMessages(prev => [...prev, finalAiMessage]);
-            clearStream();
-        }
-    }, [isStreaming, aiMessageStream, activeConversationId, clearStream]);
+
 
 
     const handleSend = async () => {
@@ -98,7 +152,7 @@ export default function Chat() {
             }
         }
 
-        // Prepare mock user message for immediate UI update
+        // Create mock user message for immediate UI update
         const userMsg: ChatMessage = {
             id: Date.now().toString(),
             conversationId: targetConvId as string,
@@ -110,13 +164,39 @@ export default function Chat() {
         };
 
         setMessages(prev => [...prev, userMsg]);
+        setIsTyping(true);
 
-        // For new conversations, use connectAndSend to avoid the
-        // race condition where sendMessage has a stale conversationId
-        if (isNewConversation) {
-            connectAndSend(targetConvId as string, currentText);
-        } else {
-            sendMessage(currentText);
+        try {
+            // Send the message over HTTP
+            const response = await addMessage(token, targetConvId as string, {
+                sender: 'USER',
+                messageType: 'TEXT',
+                textContent: currentText,
+                language: i18n.language
+            });
+
+            // Replace the mock message with the actual messages from the server
+            // The server returns { userMessage, aiMessage }
+            setMessages(prev => [
+                ...prev.filter(m => m.id !== userMsg.id), // remove mock msg
+                response.userMessage,
+                response.aiMessage
+            ]);
+        } catch (err: any) {
+            console.error("Failed to send message over HTTP:", err);
+            // Optionally add an error message to the UI here
+            const errorMsg: ChatMessage = {
+                id: Date.now().toString() + "_err",
+                conversationId: targetConvId as string,
+                sender: 'AI',
+                messageType: 'TEXT',
+                textContent: "Sorry, there was an error communicating with the server.",
+                filePath: null,
+                createdAt: new Date().toISOString()
+            };
+            setMessages(prev => [...prev.filter(m => m.id !== userMsg.id), userMsg, errorMsg]);
+        } finally {
+            setIsTyping(false);
         }
     };
 
@@ -163,7 +243,6 @@ export default function Chat() {
                     <div className="ml-4 px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/10 text-white/90 text-sm font-medium">
                         AgriAssist
                     </div>
-                    {wsError && <div className="ml-auto text-xs text-red-400">{t('chat.wsError')}</div>}
                 </div>
 
                 {/* Chat Area */}
@@ -197,20 +276,31 @@ export default function Chat() {
 
                             {messages.map((msg, idx) => (
                                 <div key={idx} className={`flex ${msg.sender === 'USER' ? 'justify-end' : 'justify-start'}`}>
-                                    <div className={`max-w-[85%] rounded-2xl px-4 py-2 text-sm leading-relaxed ${msg.sender === 'USER'
-                                        ? 'bg-green-600/80 text-white rounded-tr-sm'
-                                        : 'glass-panel-dark border border-white/10 text-white/90 rounded-tl-sm'
-                                        }`}>
-                                        {msg.textContent}
+                                    <div className={`max-w-[85%] rounded-2xl px-4 py-2 text-sm leading-relaxed ${
+                                        msg.sender === 'USER'
+                                            ? 'bg-green-600/80 text-white rounded-tr-sm'
+                                            : 'glass-panel-dark border border-white/10 text-white/90 rounded-tl-sm'
+                                    }`}>
+                                        {msg.sender === 'AI' ? (
+                                            <div className="markdown-chat">
+                                                <ReactMarkdown components={markdownComponents}>
+                                                    {msg.textContent || ''}
+                                                </ReactMarkdown>
+                                            </div>
+                                        ) : (
+                                            msg.textContent
+                                        )}
                                     </div>
                                 </div>
                             ))}
 
-                            {/* Streaming Fake Message */}
-                            {isStreaming && aiMessageStream && (
+                            {/* Typing Indicator */}
+                            {isTyping && (
                                 <div className="flex justify-start">
-                                    <div className="max-w-[85%] rounded-2xl px-4 py-2 text-sm leading-relaxed glass-panel-dark border border-white/10 text-white/90 rounded-tl-sm">
-                                        {aiMessageStream} <span className="animate-pulse">|</span>
+                                    <div className="max-w-[85%] rounded-2xl px-4 py-2 text-sm leading-relaxed glass-panel-dark border border-white/10 text-white/90 rounded-tl-sm flex items-center gap-1">
+                                        <div className="w-1.5 h-1.5 bg-white/50 rounded-full animate-bounce delay-75"></div>
+                                        <div className="w-1.5 h-1.5 bg-white/50 rounded-full animate-bounce delay-150"></div>
+                                        <div className="w-1.5 h-1.5 bg-white/50 rounded-full animate-bounce delay-300"></div>
                                     </div>
                                 </div>
                             )}
@@ -228,8 +318,8 @@ export default function Chat() {
                                 type="text"
                                 value={inputText}
                                 onChange={(e) => setInputText(e.target.value)}
-                                placeholder={activeConversationId && !isConnected ? t('chat.reconnecting') : t('chat.askAgriAssist')}
-                                disabled={!!(activeConversationId && !isConnected)}
+                                placeholder={isTyping ? t('chat.loading') : t('chat.askAgriAssist')}
+                                disabled={isTyping}
                                 className="flex-1 bg-transparent text-white placeholder-white/50 focus:outline-none text-sm disabled:opacity-50"
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter') handleSend();
@@ -237,18 +327,18 @@ export default function Chat() {
                             />
                             <div className="flex items-center gap-2">
                                 <button
-                                    disabled={!!(activeConversationId && !isConnected)}
+                                    disabled={isTyping}
                                     onClick={() => setIsVoiceOverlayOpen(true)}
                                     className="p-2 text-white/70 hover:text-white transition disabled:opacity-50"
                                 >
                                     <Mic size={20} />
                                 </button>
                                 <button
-                                    className={`w-8 h-8 rounded-full flex items-center justify-center transition ${inputText.trim() && (!activeConversationId || isConnected)
+                                    className={`w-8 h-8 rounded-full flex items-center justify-center transition ${inputText.trim() && !isTyping
                                         ? 'bg-gradient-to-r from-green-500 to-emerald-400 text-white hover:from-green-400 hover:to-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.5)]'
                                         : 'bg-white/10 text-white/40 cursor-not-allowed'
                                         }`}
-                                    disabled={!inputText.trim() || !!(activeConversationId && !isConnected)}
+                                    disabled={!inputText.trim() || isTyping}
                                     onClick={handleSend}
                                 >
                                     <ArrowUp size={18} />

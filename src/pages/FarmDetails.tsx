@@ -1,7 +1,11 @@
-import { Folder, MapPin, Droplet, Sun, Activity, Beaker } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Folder, MapPin, Droplet, Sun, Activity, Beaker, Award, ChevronDown, ChevronUp, Loader2, RefreshCw } from 'lucide-react';
 import BottomNav from '../components/BottomNav';
 import { useAppData } from '../context/AppDataContext';
+import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
+import { getSchemeRecommendations } from '../services/schemeService';
+import type { SchemeRecommendation } from '../services/schemeService';
 
 // Crop image mapper from local assets
 const cropImages: Record<string, string> = {
@@ -33,11 +37,65 @@ const getCropStageKey = (sowingDate: string, growthDays: number): string => {
     return 'farm.maturity';
 };
 
+// Score badge color helper
+const getScoreBadge = (score: number) => {
+    if (score >= 0.7) return { bg: 'bg-green-500/20', text: 'text-green-400', border: 'border-green-500/30', label: 'High Match' };
+    if (score >= 0.5) return { bg: 'bg-yellow-500/20', text: 'text-yellow-400', border: 'border-yellow-500/30', label: 'Good Match' };
+    return { bg: 'bg-blue-500/20', text: 'text-blue-400', border: 'border-blue-500/30', label: 'Relevant' };
+};
+
+// Extract a clean scheme title — handles "Unknown (Part X)" fallback
+const getSchemeTitle = (scheme: SchemeRecommendation): string => {
+    // If title is valid and not "Unknown", use it
+    if (scheme.title && !scheme.title.toLowerCase().startsWith('unknown')) {
+        // Remove " (Part X)" suffix if present
+        return scheme.title.replace(/\s*\(Part \d+\)$/i, '');
+    }
+    // Try to extract scheme name from description
+    if (scheme.description) {
+        // Look for common scheme name patterns
+        const nameMatch = scheme.description.match(/(?:scheme|yojana|mission|programme|program|abhiyan)[:\s]+([^.]+)/i);
+        if (nameMatch) return nameMatch[1].trim().substring(0, 60);
+        // Use first meaningful sentence as title
+        const firstSentence = scheme.description.split(/[.!]/)[0]?.trim();
+        if (firstSentence && firstSentence.length > 5) {
+            return firstSentence.length > 60 ? firstSentence.substring(0, 57) + '...' : firstSentence;
+        }
+    }
+    return scheme.scheme_id || 'Agricultural Scheme';
+};
+
+// Format long description text into simple bullet points
+const formatDescriptionAsBullets = (text: string): string[] => {
+    if (!text) return [];
+    // Split by periods, newlines, or semicolons to create bullet points
+    const parts = text
+        .split(/(?<=[.;])\s+|\n+/)
+        .map(s => s.trim())
+        .filter(s => s.length > 10) // filter out tiny fragments
+        .map(s => s.replace(/^[-•]\s*/, '')); // remove existing bullets
+    return parts.slice(0, 6); // max 6 points
+};
+
+// Check if region/location is meaningful
+const hasValidRegion = (region: string | undefined): boolean => {
+    if (!region) return false;
+    const lower = region.toLowerCase().trim();
+    return lower !== '' && lower !== 'not mentioned' && lower !== 'unknown' && lower !== 'n/a';
+};
+
 export default function FarmDetails() {
     const { t } = useTranslation();
-    const { land, geoData, weather, isDataReady, geoLoading, fields, activeCrops } = useAppData();
+    const { token } = useAuth();
+    const { land, geoData, weather, isDataReady, fields, activeCrops } = useAppData();
 
     const loading = !isDataReady;
+
+    // Scheme recommendations state
+    const [schemes, setSchemes] = useState<SchemeRecommendation[]>([]);
+    const [schemesLoading, setSchemesLoading] = useState(false);
+    const [schemesError, setSchemesError] = useState<string | null>(null);
+    const [expandedScheme, setExpandedScheme] = useState<string | null>(null);
 
     const mapSoilType = (type: string) => {
         if (!type) return '—';
@@ -70,6 +128,42 @@ export default function FarmDetails() {
 
     // Corners count
     const cornersCount = land?.corners && Array.isArray(land.corners) ? (land.corners as any[]).length : 0;
+
+    // Fetch scheme recommendations when land data is available
+    const fetchSchemes = async () => {
+        if (!token || !land) return;
+
+        setSchemesLoading(true);
+        setSchemesError(null);
+
+        try {
+            const response = await getSchemeRecommendations(token, {
+                crop: land.plantedCropManual || '',
+                soil_type: land.soilType || '',
+                area_acres: land.totalArea || 0,
+                state: land.state || '',
+                district: land.district || '',
+                top_k: 8,
+            });
+
+            if (response.status === 'success' && response.data?.source_documents) {
+                setSchemes(response.data.source_documents);
+            } else {
+                setSchemes([]);
+            }
+        } catch (err: any) {
+            console.error('[FarmDetails] Scheme fetch error:', err);
+            setSchemesError(err.message || 'Failed to load scheme recommendations');
+        } finally {
+            setSchemesLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (isDataReady && land && token) {
+            fetchSchemes();
+        }
+    }, [isDataReady, land?.id, token]);
 
     if (loading) {
         return (
@@ -236,6 +330,166 @@ export default function FarmDetails() {
                                 </div>
                             </div>
                         </div>
+
+                    </div>
+                </div>
+
+                {/* ──────────── Government Schemes Section ──────────── */}
+                <div className="mt-6 px-4">
+                    <div className="relative glass-panel-dark border border-white/20 rounded-3xl shadow-2xl overflow-hidden p-5">
+
+                        {/* Decorative glow */}
+                        <div className="absolute top-0 left-0 w-40 h-40 bg-amber-500/8 blur-[50px] rounded-full pointer-events-none"></div>
+
+                        {/* Header */}
+                        <div className="flex items-center justify-between mb-4 relative z-10">
+                            <div className="flex items-center gap-2">
+                                <Award size={20} className="text-amber-400" />
+                                <h3 className="text-white text-base font-medium">Government Schemes For You</h3>
+                            </div>
+                            <button
+                                onClick={fetchSchemes}
+                                disabled={schemesLoading}
+                                className="text-gray-400 hover:text-white transition-colors p-1"
+                            >
+                                <RefreshCw size={14} className={schemesLoading ? 'animate-spin' : ''} />
+                            </button>
+                        </div>
+
+                        <p className="text-gray-500 text-[11px] mb-4 relative z-10">
+                            Personalized scheme recommendations based on your crop, soil type, farm size, and location.
+                        </p>
+
+                        {/* Loading State */}
+                        {schemesLoading && (
+                            <div className="space-y-3 relative z-10">
+                                {[1, 2, 3].map((i) => (
+                                    <div key={i} className="bg-white/5 border border-white/5 rounded-xl p-4 animate-pulse">
+                                        <div className="flex items-start justify-between">
+                                            <div className="space-y-2 flex-1">
+                                                <div className="h-4 w-3/4 bg-white/10 rounded"></div>
+                                                <div className="h-3 w-1/2 bg-white/5 rounded"></div>
+                                            </div>
+                                            <div className="h-5 w-16 bg-white/10 rounded-full"></div>
+                                        </div>
+                                    </div>
+                                ))}
+                                <div className="flex items-center justify-center gap-2 py-2">
+                                    <Loader2 size={14} className="animate-spin text-amber-400" />
+                                    <span className="text-gray-400 text-xs">Finding best schemes for you...</span>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Error State */}
+                        {!schemesLoading && schemesError && (
+                            <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 text-center relative z-10">
+                                <p className="text-red-400 text-xs">{schemesError}</p>
+                                <button
+                                    onClick={fetchSchemes}
+                                    className="mt-2 text-[10px] text-red-300 underline hover:text-red-200"
+                                >
+                                    Try again
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Empty State */}
+                        {!schemesLoading && !schemesError && schemes.length === 0 && (
+                            <div className="text-center py-6 relative z-10">
+                                <Award size={28} className="text-gray-600 mx-auto mb-2" />
+                                <p className="text-gray-500 text-xs">No scheme recommendations available yet</p>
+                                <p className="text-gray-600 text-[10px] mt-1">Make sure your crop and location details are saved in your profile</p>
+                            </div>
+                        )}
+
+                        {/* Scheme Cards */}
+                        {!schemesLoading && !schemesError && schemes.length > 0 && (
+                            <div className="space-y-3 relative z-10">
+                                {schemes.map((scheme) => {
+                                    const badge = getScoreBadge(scheme.final_score);
+                                    const isExpanded = expandedScheme === scheme.id;
+
+                                    return (
+                                        <div
+                                            key={scheme.id}
+                                            className="bg-white/[0.03] border border-white/10 rounded-xl overflow-hidden transition-all hover:border-white/20"
+                                        >
+                                            {/* Scheme Header */}
+                                            <button
+                                                onClick={() => setExpandedScheme(isExpanded ? null : scheme.id)}
+                                                className="w-full p-4 text-left"
+                                            >
+                                                <div className="flex items-start justify-between gap-3">
+                                                    <div className="flex-1 min-w-0">
+                                                        <h4 className="text-white text-sm font-medium leading-snug">
+                                                            {getSchemeTitle(scheme)}
+                                                        </h4>
+                                                        {scheme.benefit_amount && (
+                                                            <p className="text-green-400 text-xs mt-1 font-medium">
+                                                                💰 {scheme.benefit_amount}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex items-center gap-2 shrink-0">
+                                                        <span className={`text-[10px] px-2 py-0.5 rounded-full border ${badge.bg} ${badge.text} ${badge.border}`}>
+                                                            {badge.label}
+                                                        </span>
+                                                        {isExpanded ? <ChevronUp size={14} className="text-gray-400" /> : <ChevronDown size={14} className="text-gray-400" />}
+                                                    </div>
+                                                </div>
+
+                                                {/* Region + Crops Tags (always visible) */}
+                                                <div className="flex flex-wrap gap-1.5 mt-2">
+                                                    {hasValidRegion(scheme.region) && (
+                                                        <span className="text-[10px] bg-white/5 text-gray-400 px-2 py-0.5 rounded-full border border-white/5 flex items-center gap-1">
+                                                            <MapPin size={9} className="shrink-0" /> {scheme.region}
+                                                        </span>
+                                                    )}
+                                                    {scheme.crop_type && scheme.crop_type !== 'Not mentioned' && (
+                                                        <span className="text-[10px] bg-white/5 text-gray-400 px-2 py-0.5 rounded-full border border-white/5">
+                                                            🌾 {scheme.crop_type.length > 40 ? scheme.crop_type.substring(0, 40) + '...' : scheme.crop_type}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </button>
+
+                                            {/* Expanded Details */}
+                                            {isExpanded && (
+                                                <div className="px-4 pb-4 pt-0 border-t border-white/5 space-y-3">
+                                                    {scheme.description && (
+                                                        <div className="mt-3">
+                                                            <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1.5">Key Points</p>
+                                                            <ul className="space-y-1.5">
+                                                                {formatDescriptionAsBullets(scheme.description).map((point, idx) => (
+                                                                    <li key={idx} className="text-gray-300 text-xs leading-relaxed flex gap-2">
+                                                                        <span className="text-green-500 mt-0.5 shrink-0">•</span>
+                                                                        <span>{point}</span>
+                                                                    </li>
+                                                                ))}
+                                                            </ul>
+                                                        </div>
+                                                    )}
+                                                    {scheme.eligibility && scheme.eligibility !== 'Not mentioned' && (
+                                                        <div>
+                                                            <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Who Can Apply</p>
+                                                            <p className="text-gray-300 text-xs leading-relaxed">
+                                                                {scheme.eligibility}
+                                                            </p>
+                                                        </div>
+                                                    )}
+                                                    {scheme.scheme_id && (
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-[10px] text-gray-600">Scheme ID: {scheme.scheme_id}</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
 
                     </div>
                 </div>
