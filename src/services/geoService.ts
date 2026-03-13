@@ -17,10 +17,18 @@ export interface TemperatureData {
     forecast_days: number;
 }
 
+export interface FarmMetricsData {
+    temperature_celsius: number | null;
+    humidity_percent: number | null;
+    soil_moisture_mm: number | null;
+    soil_ph: number | null;
+}
+
 export interface GeoAnalysisData {
     ndvi: NDVIData;
     rainfall_forecast: RainfallData;
     temperature_forecast: TemperatureData;
+    farm_metrics: FarmMetricsData;
     alerts: string[];
 }
 

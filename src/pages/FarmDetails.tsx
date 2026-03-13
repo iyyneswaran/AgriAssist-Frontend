@@ -1,4 +1,4 @@
-import { Folder, MapPin, Droplet, Sun } from 'lucide-react';
+import { Folder, MapPin, Droplet, Sun, Activity, Beaker } from 'lucide-react';
 import BottomNav from '../components/BottomNav';
 import { useAppData } from '../context/AppDataContext';
 import { useTranslation } from 'react-i18next';
@@ -35,7 +35,7 @@ const getCropStageKey = (sowingDate: string, growthDays: number): string => {
 
 export default function FarmDetails() {
     const { t } = useTranslation();
-    const { land, weather, fields, activeCrops, isDataReady } = useAppData();
+    const { land, geoData, weather, isDataReady, geoLoading, fields, activeCrops } = useAppData();
 
     const loading = !isDataReady;
 
@@ -65,12 +65,8 @@ export default function FarmDetails() {
         ? new Date(assignment.harvestDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
         : '—';
 
-    // Weather icon from local assets
-    const weatherIconSrc = weather ? new URL(`../assets/weather/${weather.iconFile}`, import.meta.url).href : '';
-
-    // Format today's date
-    const today = new Date();
-    const dateStr = today.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    // Extract GEE Farm Metrics
+    const metrics = geoData?.farm_metrics;
 
     // Corners count
     const cornersCount = land?.corners && Array.isArray(land.corners) ? (land.corners as any[]).length : 0;
@@ -206,33 +202,39 @@ export default function FarmDetails() {
                             )}
                         </div>
 
-                        {/* Environmental Metrics + Weather Widget */}
-                        <div className="mt-5 pt-4 border-t border-white/5 flex justify-between items-end relative z-10">
-                            {/* Left: Environment Stats */}
-                            <div className="space-y-3">
-                                <div className="flex items-center gap-2">
-                                    <Droplet size={18} className="text-teal-400 fill-teal-400" />
-                                    <span className="text-gray-200 text-sm">{t('farm.humidity')} <span className="text-green-400">{weather ? `${weather.humidity}%` : '—'}</span></span>
+                        {/* Environmental Metrics (GEE & Weather) */}
+                        <div className="mt-5 pt-4 border-t border-white/5 relative z-10">
+                            <h3 className="text-gray-300 text-xs font-medium mb-3">{t('farm.farmMetrics', 'Farm Metrics')}</h3>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="bg-[#1f261f]/80 backdrop-blur-md rounded-xl border border-white/10 p-3 flex items-center gap-3">
+                                    <Sun size={20} className="text-yellow-400 fill-yellow-400 shrink-0" />
+                                    <div>
+                                        <p className="text-gray-400 text-[10px] uppercase tracking-wider">{t('farm.temperature', 'Temperature')}</p>
+                                        <p className="text-white text-sm font-medium">{weather?.temperature ? `${weather.temperature}°C` : '—'}</p>
+                                    </div>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <Sun size={18} className="text-yellow-400 fill-yellow-400" />
-                                    <span className="text-gray-200 text-sm">{t('farm.temperature')} <span className="text-white">{weather ? `${weather.temperature}°C` : '—'}</span></span>
+                                <div className="bg-[#1f261f]/80 backdrop-blur-md rounded-xl border border-white/10 p-3 flex items-center gap-3">
+                                    <Droplet size={20} className="text-blue-400 fill-blue-400 shrink-0" />
+                                    <div>
+                                        <p className="text-gray-400 text-[10px] uppercase tracking-wider">{t('farm.humidity', 'Humidity')}</p>
+                                        <p className="text-white text-sm font-medium">{metrics?.humidity_percent ? `${metrics.humidity_percent}%` : '—'}</p>
+                                    </div>
+                                </div>
+                                <div className="bg-[#1f261f]/80 backdrop-blur-md rounded-xl border border-white/10 p-3 flex items-center gap-3">
+                                    <Activity size={20} className="text-teal-400 shrink-0" />
+                                    <div>
+                                        <p className="text-gray-400 text-[10px] uppercase tracking-wider">{t('farm.soilMoisture', 'Soil Moisture')}</p>
+                                        <p className="text-white text-sm font-medium">{metrics?.soil_moisture_mm ? `${metrics.soil_moisture_mm} mm` : '—'}</p>
+                                    </div>
+                                </div>
+                                <div className="bg-[#1f261f]/80 backdrop-blur-md rounded-xl border border-white/10 p-3 flex items-center gap-3">
+                                    <Beaker size={20} className="text-purple-400 shrink-0" />
+                                    <div>
+                                        <p className="text-gray-400 text-[10px] uppercase tracking-wider">{t('farm.soilPh', 'Soil pH')}</p>
+                                        <p className="text-white text-sm font-medium">{metrics?.soil_ph ? metrics.soil_ph : '—'}</p>
+                                    </div>
                                 </div>
                             </div>
-
-                            {/* Right: Weather Mini Widget */}
-                            {weather && (
-                                <div className="bg-[#1f261f]/80 backdrop-blur-md rounded-2xl border border-white/10 p-3 flex flex-col items-center min-w-[90px]">
-                                    <h3 className="text-gray-300 text-[10px] font-medium mb-1.5">{t('farm.weather')}</h3>
-                                    <img
-                                        src={weatherIconSrc}
-                                        alt={weather.conditionName}
-                                        className="w-10 h-10 object-contain drop-shadow-lg mb-1"
-                                    />
-                                    <span className="text-orange-300 text-[10px] font-medium">{weather.conditionName}</span>
-                                    <p className="text-[9px] text-gray-400 mt-0.5">{dateStr}</p>
-                                </div>
-                            )}
                         </div>
 
                     </div>
