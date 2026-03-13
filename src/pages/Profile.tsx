@@ -6,25 +6,31 @@ import { useAuth } from '../context/AuthContext';
 import { getProfile, updateProfile } from '../services/userService';
 import type { UserProfile } from '../services/userService';
 import { getMyLand, registerLand, updateLand } from '../services/landService';
-import type { LandDetails } from '../services/landService';
-import { listCrops, assignCrop, getActiveCrops } from '../services/cropService';
-import type { Crop } from '../services/cropService';
+import type { LandDetails, CornerCoord } from '../services/landService';
 import { addField, getMyFields } from '../services/fieldService';
 import { useTranslation } from 'react-i18next';
 import { useAppData } from '../context/AppDataContext';
 
-interface NewFieldInput {
-    name: string;
-    area: number | '';
-    cropId: string;
-}
-
-interface ExistingFieldData {
-    id: string;
-    name: string;
-    area: number;
-    cropName: string;
-}
+// Calculate polygon area in acres from GPS corner coordinates using Shoelace formula
+const calculateAreaAcres = (corners: CornerCoord[]): number => {
+    if (corners.length < 3) return 0;
+    const toRad = (d: number) => (d * Math.PI) / 180;
+    const R = 6371000;
+    const refLat = corners[0].lat;
+    const refLng = corners[0].lng;
+    const points = corners.map((c) => ({
+        x: (c.lng - refLng) * toRad(1) * R * Math.cos(toRad(refLat)),
+        y: (c.lat - refLat) * toRad(1) * R,
+    }));
+    let area = 0;
+    for (let i = 0; i < points.length; i++) {
+        const j = (i + 1) % points.length;
+        area += points[i].x * points[j].y;
+        area -= points[j].x * points[i].y;
+    }
+    area = Math.abs(area) / 2;
+    return Math.round((area / 4046.86) * 10000) / 10000; // sq meters to acres
+};
 
 export default function Profile() {
     const navigate = useNavigate();
@@ -34,9 +40,6 @@ export default function Profile() {
 
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
-
-    // Reference Data
-    const [availableCrops, setAvailableCrops] = useState<Crop[]>([]);
 
     // User State
     const [user, setUser] = useState<UserProfile | null>(null);
@@ -48,38 +51,30 @@ export default function Profile() {
     const [totalArea, setTotalArea] = useState<number | ''>('');
     const [soilType, setSoilType] = useState('Black');
 
-    // Existing Fields (read-only display)
-    const [existingFields, setExistingFields] = useState<ExistingFieldData[]>([]);
+    // Manual crop name (text input)
+    const [plantedCropManual, setPlantedCropManual] = useState('');
 
-    // NEW Fields to be created
-    const [newFields, setNewFields] = useState<NewFieldInput[]>([]);
-
-    // Location State
+    // Location State — Corner-based mapping
     const [district, setDistrict] = useState('');
     const [state, setState] = useState('');
-    const [lat, setLat] = useState<number | ''>('');
-    const [lng, setLng] = useState<number | ''>('');
+    const [corners, setCorners] = useState<CornerCoord[]>([]);
     const [isLocating, setIsLocating] = useState(false);
+    const [isGeoLocating, setIsGeoLocating] = useState(false);
 
     // Initial Fetch
     useEffect(() => {
         const fetchInitialData = async () => {
             if (!token) return;
             try {
-                const [userData, landData, cropsData, fieldsData, assignments] = await Promise.all([
+                const [userData, landData, fieldsData] = await Promise.all([
                     getProfile(token),
                     getMyLand(token),
-                    listCrops(token).catch(() => []),
                     getMyFields(token).catch(() => []),
-                    getActiveCrops(token).catch(() => []),
                 ]);
 
                 // Initialize user
                 setUser(userData);
                 setName(userData.name || '');
-
-                // Initialize reference crops
-                setAvailableCrops(cropsData);
 
                 // Initialize land
                 if (landData) {
@@ -89,21 +84,17 @@ export default function Profile() {
                     setSoilType(landData.soilType);
                     setDistrict(landData.district);
                     setState(landData.state);
-                    setLat(landData.latitude);
-                    setLng(landData.longitude);
+                    setPlantedCropManual(landData.plantedCropManual || '');
+                    // Load existing corners
+                    if (landData.corners && Array.isArray(landData.corners)) {
+                        setCorners(landData.corners as CornerCoord[]);
+                    }
                 }
 
-                // Initialize existing fields with their crop names
-                const existingMapped: ExistingFieldData[] = fieldsData.map((f: any) => {
-                    const assignment = assignments.find((a: any) => a.fieldId === f.id);
-                    return {
-                        id: f.id,
-                        name: f.name,
-                        area: f.area,
-                        cropName: assignment?.crop?.name || 'No crop assigned',
-                    };
-                });
-                setExistingFields(existingMapped);
+                // Track existing field for area sync
+                if (fieldsData.length > 0) {
+                    // Field exists — we'll update it on save
+                }
 
             } catch (err) {
                 console.error("Failed to fetch profile data:", err);
@@ -115,34 +106,61 @@ export default function Profile() {
         fetchInitialData();
     }, [token]);
 
-    const addNewFieldRow = () => {
-        setNewFields(prev => [...prev, { name: '', area: '', cropId: '' }]);
-    };
+    // Auto-calculate area when corners change (≥3 corners)
+    useEffect(() => {
+        if (corners.length >= 3) {
+            const acres = calculateAreaAcres(corners);
+            setTotalArea(acres);
+        }
+    }, [corners]);
 
-    const removeNewFieldRow = (index: number) => {
-        setNewFields(prev => prev.filter((_, i) => i !== index));
-    };
+    // Auto-resolve district & state from corners via reverse geocoding
+    useEffect(() => {
+        if (corners.length < 3) return;
 
-    const updateNewField = (index: number, key: keyof NewFieldInput, value: any) => {
-        const updated = [...newFields];
-        updated[index] = { ...updated[index], [key]: value };
-        setNewFields(updated);
-    };
+        const centerLat = corners.reduce((s, c) => s + c.lat, 0) / corners.length;
+        const centerLng = corners.reduce((s, c) => s + c.lng, 0) / corners.length;
 
-    const handleAutoLocation = () => {
+        const reverseGeocode = async () => {
+            setIsGeoLocating(true);
+            try {
+                const res = await fetch(
+                    `https://nominatim.openstreetmap.org/reverse?lat=${centerLat}&lon=${centerLng}&format=json&addressdetails=1`,
+                    { headers: { 'Accept-Language': 'en' } }
+                );
+                const data = await res.json();
+                const addr = data.address || {};
+                setDistrict(addr.county || addr.state_district || addr.city || '');
+                setState(addr.state || '');
+            } catch (err) {
+                console.error('Reverse geocoding failed:', err);
+            } finally {
+                setIsGeoLocating(false);
+            }
+        };
+
+        reverseGeocode();
+    }, [corners]);
+
+    // Add a corner using device GPS
+    const handleAddCorner = () => {
         setIsLocating(true);
         if ("geolocation" in navigator) {
             navigator.geolocation.getCurrentPosition(
                 (position) => {
-                    setLat(position.coords.latitude);
-                    setLng(position.coords.longitude);
+                    const newCorner: CornerCoord = {
+                        lat: parseFloat(position.coords.latitude.toFixed(6)),
+                        lng: parseFloat(position.coords.longitude.toFixed(6)),
+                    };
+                    setCorners(prev => [...prev, newCorner]);
                     setIsLocating(false);
                 },
                 (error) => {
                     console.error("Error getting location:", error);
                     alert("Failed to get location. Please allow location permissions.");
                     setIsLocating(false);
-                }
+                },
+                { enableHighAccuracy: true, timeout: 15000 }
             );
         } else {
             alert("Geolocation is not supported by your browser");
@@ -150,22 +168,22 @@ export default function Profile() {
         }
     };
 
+    const removeCorner = (index: number) => {
+        setCorners(prev => prev.filter((_, i) => i !== index));
+    };
+
     const handleSave = async () => {
         if (!token) return;
 
         // Validation
-        if (!name.trim() || !farmName.trim() || totalArea === '' || !district.trim() || !state.trim() || lat === '' || lng === '') {
+        if (!name.trim() || !farmName.trim() || totalArea === '' || !district.trim() || !state.trim()) {
             alert("All main profile fields are required.");
             return;
         }
 
-        // Validate new fields
-        for (let i = 0; i < newFields.length; i++) {
-            const f = newFields[i];
-            if (!f.name.trim() || f.area === '' || !f.cropId) {
-                alert(`Please complete all details for new Field "${f.name || i + 1}"`);
-                return;
-            }
+        if (corners.length < 3) {
+            alert("Please map at least 3 corners of your land.");
+            return;
         }
 
         setIsSaving(true);
@@ -183,8 +201,10 @@ export default function Profile() {
                 soilType,
                 district,
                 state,
-                latitude: Number(lat),
-                longitude: Number(lng)
+                latitude: corners[0].lat,
+                longitude: corners[0].lng,
+                corners,
+                plantedCropManual: plantedCropManual.trim() || undefined,
             };
 
             if (landExists) {
@@ -194,27 +214,13 @@ export default function Profile() {
                 setLandExists(true);
             }
 
-            // 3. Register ONLY NEW Fields & Assign Crops
-            for (const field of newFields) {
-                const addedFieldRes = await addField(token, { name: field.name, area: Number(field.area) });
-                const newFieldId = addedFieldRes.field.id;
-                const today = new Date().toISOString();
-                await assignCrop(token, newFieldId, field.cropId, today);
+            // 3. Create field if it doesn't exist
+            const fieldsData = await getMyFields(token).catch(() => []);
+            if (fieldsData.length === 0) {
+                await addField(token, { name: farmName, area: Number(totalArea) });
             }
 
-            // Move newly created fields into existing and clear new
-            const cropLookup = Object.fromEntries(availableCrops.map(c => [c.id, c.name]));
-            const newlyCreated: ExistingFieldData[] = newFields.map(f => ({
-                id: '',
-                name: f.name,
-                area: Number(f.area),
-                cropName: cropLookup[f.cropId] || 'Unknown',
-            }));
-            setExistingFields(prev => [...prev, ...newlyCreated]);
-            setNewFields([]);
-
             alert('Profile saved successfully!');
-            // Refresh cached data in context so other pages reflect the changes
             refreshAll();
             navigate(-1);
         } catch (error: any) {
@@ -235,7 +241,6 @@ export default function Profile() {
                         <div className="h-9 w-32 rounded-full bg-white/10"></div>
                     </div>
                     <div className="px-6 mt-6 space-y-8">
-                        {/* Personal Details Skeleton */}
                         <div className="glass-panel-dark border border-white/10 rounded-3xl p-6 bg-white/5">
                             <div className="h-6 w-40 bg-white/10 rounded-full mb-6"></div>
                             <div className="space-y-4">
@@ -249,7 +254,6 @@ export default function Profile() {
                                 </div>
                             </div>
                         </div>
-                        {/* Farm Profile Skeleton */}
                         <div className="glass-panel-dark border border-white/10 rounded-3xl p-6 bg-white/5 relative overflow-hidden">
                             <div className="h-6 w-48 bg-white/10 rounded-full mb-6"></div>
                             <div className="space-y-4">
@@ -318,7 +322,7 @@ export default function Profile() {
                         </div>
                     </div>
 
-                    {/* Parent Land Details */}
+                    {/* Farm Profile — Single Farm + Single Crop */}
                     <div className="glass-panel-dark border border-white/10 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
                         <div className="absolute top-0 right-0 w-32 h-32 bg-green-500/10 blur-3xl pointer-events-none rounded-full"></div>
                         <h2 className="text-white text-lg font-medium mb-4 flex items-center gap-2 relative">
@@ -333,10 +337,11 @@ export default function Profile() {
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="text-xs text-gray-400 ml-2">{t('profile.totalArea')}</label>
-                                    <input type="number" value={totalArea} onChange={(e) => setTotalArea(Number(e.target.value))}
-                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-green-500/50 mt-1"
-                                        placeholder="0.0" />
+                                    <label className="text-xs text-gray-400 ml-2">{t('profile.totalArea')} (acres)</label>
+                                    <input type="number" value={totalArea} readOnly
+                                        className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-gray-300 mt-1 cursor-not-allowed"
+                                        placeholder="Auto-calculated" />
+                                    <p className="text-[10px] text-gray-500 ml-2 mt-1">Auto-calculated from mapped corners</p>
                                 </div>
                                 <div>
                                     <label className="text-xs text-gray-400 ml-2">{t('profile.soilType')}</label>
@@ -350,132 +355,98 @@ export default function Profile() {
                                     </select>
                                 </div>
                             </div>
-                        </div>
-                    </div>
-
-                    {/* Registered Fields (Existing — Read Only) */}
-                    {existingFields.length > 0 && (
-                        <div className="glass-panel-dark border border-white/10 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
-                            <h2 className="text-white text-lg font-medium mb-4">{t('profile.yourRegisteredFields')}</h2>
-                            <div className="space-y-3">
-                                {existingFields.map((ef, i) => (
-                                    <div key={ef.id || i} className="bg-white/5 border border-white/5 rounded-2xl p-4 flex justify-between items-center">
-                                        <div>
-                                            <p className="text-white text-sm font-medium">{ef.name}</p>
-                                            <p className="text-gray-400 text-xs mt-0.5">{ef.area} {t('profile.acres')} · {ef.cropName}</p>
-                                        </div>
-                                        <div className="bg-green-500/20 text-green-400 text-[10px] px-2 py-0.5 rounded-full border border-green-500/30">
-                                            {t('profile.active')}
-                                        </div>
-                                    </div>
-                                ))}
+                            {/* Planted Crop — Manual Text Entry */}
+                            <div>
+                                <label className="text-xs text-gray-400 ml-2">{t('profile.plantedCrop')}</label>
+                                <input type="text" value={plantedCropManual}
+                                    onChange={(e) => setPlantedCropManual(e.target.value)}
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-green-500/50 mt-1 placeholder-gray-500"
+                                    placeholder="e.g. Paddy, Cotton, Wheat..." />
+                                <p className="text-[10px] text-gray-500 ml-2 mt-1">Type your planted crop name</p>
                             </div>
                         </div>
-                    )}
-
-                    {/* Add NEW Fields Section */}
-                    <div className="glass-panel-dark border border-white/10 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
-                        <div className="absolute bottom-0 left-0 w-40 h-40 bg-teal-500/10 blur-3xl pointer-events-none rounded-full"></div>
-                        <div className="flex justify-between items-center mb-4 relative">
-                            <h2 className="text-white text-lg font-medium">{t('profile.addNewCrops')}</h2>
-                            <button
-                                onClick={addNewFieldRow}
-                                className="flex items-center gap-1 text-xs bg-green-500/20 text-green-400 px-3 py-1.5 rounded-full hover:bg-green-500/30 transition-colors border border-green-500/30"
-                            >
-                                <Plus size={12} />
-                                {t('profile.addField')}
-                            </button>
-                        </div>
-
-                        {newFields.length === 0 && (
-                            <p className="text-gray-500 text-xs text-center py-4 relative">
-                                {t('profile.tapToAdd')}
-                            </p>
-                        )}
-
-                        <div className="space-y-4 relative z-10">
-                            {newFields.map((field, index) => (
-                                <div key={index} className="bg-black/40 border border-white/5 p-4 rounded-2xl relative">
-                                    <div className="flex justify-between items-center mb-3">
-                                        <h3 className="text-green-400 text-sm font-medium">{t('profile.newField')} {index + 1}</h3>
-                                        <button onClick={() => removeNewFieldRow(index)} className="text-red-400/60 hover:text-red-400 transition-colors">
-                                            <Trash2 size={14} />
-                                        </button>
-                                    </div>
-                                    <div className="space-y-3">
-                                        <div>
-                                            <label className="text-[10px] text-gray-500 ml-1">{t('profile.fieldName')}</label>
-                                            <input type="text" value={field.name}
-                                                onChange={(e) => updateNewField(index, 'name', e.target.value)}
-                                                className="w-full bg-white/5 border border-transparent rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-green-500/50"
-                                                placeholder={t('profile.enterFieldName')} />
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-3">
-                                            <div>
-                                                <label className="text-[10px] text-gray-500 ml-1">{t('profile.areaAcres')}</label>
-                                                <input type="number" value={field.area}
-                                                    onChange={(e) => updateNewField(index, 'area', Number(e.target.value))}
-                                                    className="w-full bg-white/5 border border-transparent rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-green-500/50"
-                                                    placeholder="0.0" />
-                                            </div>
-                                            <div>
-                                                <label className="text-[10px] text-gray-500 ml-1">{t('profile.plantedCrop')}</label>
-                                                <select value={field.cropId}
-                                                    onChange={(e) => updateNewField(index, 'cropId', e.target.value)}
-                                                    className="w-full bg-[#1A1A1A] border border-transparent rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-green-500/50 appearance-none">
-                                                    <option value="" disabled>{t('profile.selectCrop')}</option>
-                                                    {availableCrops.map(crop => (
-                                                        <option key={crop.id} value={crop.id}>{crop.name}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
                     </div>
 
-                    {/* Location Section */}
+                    {/* Location Mapping — Corner-based */}
                     <div className="glass-panel-dark border border-white/10 rounded-3xl p-6 shadow-2xl">
                         <div className="flex justify-between items-center mb-4">
                             <h2 className="text-white text-lg font-medium">{t('profile.location')}</h2>
-                            <button onClick={handleAutoLocation} disabled={isLocating}
-                                className="flex items-center gap-1.5 text-xs bg-green-500/20 text-green-400 px-3 py-1.5 rounded-full hover:bg-green-500/30 transition-colors">
-                                {isLocating ? <Loader2 size={12} className="animate-spin" /> : <MapPin size={12} />}
-                                {t('profile.autoDetect')}
+                            <button onClick={handleAddCorner} disabled={isLocating}
+                                className="flex items-center gap-1.5 text-xs bg-green-500/20 text-green-400 px-3 py-1.5 rounded-full hover:bg-green-500/30 transition-colors border border-green-500/30">
+                                {isLocating ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
+                                Add Corner
                             </button>
                         </div>
-                        <div className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="text-xs text-gray-400 ml-2">{t('profile.district')}</label>
-                                    <input type="text" value={district} onChange={(e) => setDistrict(e.target.value)}
-                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-green-500/50 mt-1"
-                                        placeholder="Madurai" />
-                                </div>
-                                <div>
-                                    <label className="text-xs text-gray-400 ml-2">{t('profile.state')}</label>
-                                    <input type="text" value={state} onChange={(e) => setState(e.target.value)}
-                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-green-500/50 mt-1"
-                                        placeholder="Tamil Nadu" />
-                                </div>
+
+                        <p className="text-gray-500 text-[11px] mb-4">
+                            Walk to each corner of your farm and tap "Add Corner" to pin your GPS location. At least 3 corners are required.
+                        </p>
+
+                        {/* Corner List */}
+                        {corners.length === 0 ? (
+                            <div className="text-center py-6">
+                                <MapPin size={28} className="text-gray-600 mx-auto mb-2" />
+                                <p className="text-gray-500 text-xs">No corners mapped yet</p>
+                                <p className="text-gray-600 text-[10px] mt-1">Go to the first corner of your farm and tap "Add Corner"</p>
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="text-xs text-gray-400 ml-2">{t('profile.latitude')}</label>
-                                    <input type="number" value={lat} onChange={(e) => setLat(Number(e.target.value))}
-                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-green-500/50 mt-1 font-mono text-xs"
-                                        placeholder="0.0000" />
-                                </div>
-                                <div>
-                                    <label className="text-xs text-gray-400 ml-2">{t('profile.longitude')}</label>
-                                    <input type="number" value={lng} onChange={(e) => setLng(Number(e.target.value))}
-                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-green-500/50 mt-1 font-mono text-xs"
-                                        placeholder="0.0000" />
-                                </div>
+                        ) : (
+                            <div className="space-y-2 mb-4">
+                                {corners.map((corner, index) => (
+                                    <div key={index}
+                                        className="flex items-center justify-between bg-white/5 border border-white/5 rounded-xl px-4 py-3">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-7 h-7 rounded-full bg-green-500/20 border border-green-500/30 flex items-center justify-center text-green-400 text-xs font-bold">
+                                                {index + 1}
+                                            </div>
+                                            <div>
+                                                <p className="text-white text-sm font-mono">
+                                                    {corner.lat}, {corner.lng}
+                                                </p>
+                                                <p className="text-gray-500 text-[10px]">Corner {index + 1}</p>
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={() => removeCorner(index)}
+                                            className="text-red-400/60 hover:text-red-400 transition-colors p-1"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </div>
+                                ))}
                             </div>
+                        )}
+
+                        {/* District & State — Auto-resolved from coordinates */}
+                        <div className="grid grid-cols-2 gap-4 mt-4">
+                            <div>
+                                <label className="text-xs text-gray-400 ml-2">{t('profile.district')}</label>
+                                <input type="text" value={isGeoLocating ? 'Detecting...' : district} readOnly
+                                    className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-gray-300 mt-1 cursor-not-allowed"
+                                    placeholder="Auto-detected" />
+                            </div>
+                            <div>
+                                <label className="text-xs text-gray-400 ml-2">{t('profile.state')}</label>
+                                <input type="text" value={isGeoLocating ? 'Detecting...' : state} readOnly
+                                    className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-gray-300 mt-1 cursor-not-allowed"
+                                    placeholder="Auto-detected" />
+                            </div>
+                            <p className="col-span-2 text-[10px] text-gray-500 ml-2 -mt-2">Auto-detected from mapped corners</p>
                         </div>
+
+                        {/* Corner count badge */}
+                        {corners.length > 0 && (
+                            <div className="mt-4 flex items-center gap-2">
+                                <div className={`text-[10px] px-2.5 py-1 rounded-full border ${corners.length >= 3
+                                    ? 'bg-green-500/20 text-green-400 border-green-500/30'
+                                    : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
+                                    }`}>
+                                    {corners.length} corner{corners.length !== 1 ? 's' : ''} mapped
+                                </div>
+                                {corners.length < 3 && (
+                                    <span className="text-yellow-500/70 text-[10px]">Need at least 3</span>
+                                )}
+                            </div>
+                        )}
                     </div>
 
                     {/* Submit Button */}

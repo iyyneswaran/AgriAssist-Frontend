@@ -1,5 +1,10 @@
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
+export interface CornerCoord {
+    lat: number;
+    lng: number;
+}
+
 export interface LandDetails {
     id?: string;
     farmerId?: string;
@@ -10,6 +15,8 @@ export interface LandDetails {
     longitude: number;
     district: string;
     state: string;
+    corners?: CornerCoord[];
+    plantedCropManual?: string;
 }
 
 export const getMyLand = async (token: string): Promise<LandDetails | null> => {
