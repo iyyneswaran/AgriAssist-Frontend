@@ -10,6 +10,7 @@ import ScanCrop from "./pages/ScanCrop";
 import Profile from "./pages/Profile";
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { AppDataProvider } from './context/AppDataContext';
+import OfflineBanner from './components/OfflineBanner';
 
 // Simple protected route wrapper
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -36,6 +37,7 @@ export default function App() {
   return (
     <AuthProvider>
       <AppDataProvider>
+        <OfflineBanner />
         <Router>
           <Routes>
             <Route path="/login" element={<Login />} />
