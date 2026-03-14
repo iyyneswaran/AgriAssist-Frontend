@@ -1,4 +1,4 @@
-const GEO_API_URL = 'http://localhost:8001/geo';
+const GEO_API_URL = `${import.meta.env.VITE_CHAT_API_URL || 'http://localhost:8001'}/geo`;
 
 export interface NDVIData {
     ndvi_mean: number | null;

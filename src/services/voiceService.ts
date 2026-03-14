@@ -4,7 +4,7 @@
  */
 
 // Python Chat backend base URL (same host as WS, different port)
-const VOICE_API_URL = 'http://localhost:8001/api/voice';
+const VOICE_API_URL = `${import.meta.env.VITE_CHAT_API_URL || 'http://localhost:8001'}/api/voice`;
 
 /**
  * Send audio blob to the backend for speech-to-text transcription.
