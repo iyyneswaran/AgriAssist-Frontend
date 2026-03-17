@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-green: #A1E533;
+  --color-dark-green: #1E2923;
+  --color-light-gray: #F3F4F6;
+  --color-border-gray: #E5E7EB;
+  --color-muted: #6B7280;
+  --font-sans: 'Inter', sans-serif;
+  --font-serif: 'Georgia', serif;
+}
+
+@layer base {
+  body {
+    @apply text-dark-green bg-white antialiased font-sans;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold;
+  }
+  
+  .font-serif-italic {
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-weight: normal;
+    letter-spacing: 0.025em;
+  }
+}

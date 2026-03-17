@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Mic, X, Menu, Bot, Square, Loader2, Volume2 } from 'lucide-react';
-import { transcribeAudio, synthesizeSpeech, playAudioBlob } from '../services/voiceService';
+import { transcribeAudio, synthesizeSpeech, playAudioBlob, generateVoiceChatReply } from '../services/voiceService';
 import { useTranslation } from 'react-i18next';
 
 interface VoiceChatOverlayProps {
@@ -116,28 +116,18 @@ export default function VoiceChatOverlay({ isOpen, onClose }: VoiceChatOverlayPr
                 return;
             }
 
-            // Step 2: AI — get response via the same transcribed text
-            // We use the synthesize endpoint which also returns audio
-            // But first we need the AI text response. For the full pipeline,
-            // we'll send the text to TTS directly (the AI reasoning happens backend-side
-            // in a future version). For now, send the user's text to TTS as an echo test,
-            // or call a separate AI endpoint.
-            // 
-            // For the v1 voice flow: STT → TTS (echo the transcription back as speech)
-            // The full pipeline (STT → AI → TTS) will be connected when the voice_pipeline
-            // endpoint is exposed.
+// ... (in processVoice method before line 131)
 
             setVoiceState('thinking');
-
-            // Call the full voice pipeline by sending the audio to the backend
-            // which does: STT → AI (Gemini) → TTS → returns audio
-            // For now we use the direct TTS endpoint with the transcribed text
             setAiText(`${t('chat.processingPrefix')} "${text}"`);
+
+            // Step 2: Query the LLM endpoint natively
+            const aiResponseText = await generateVoiceChatReply(text, lang);
 
             // Step 3: TTS — synthesize response speech
             setVoiceState('speaking');
-            const responseAudio = await synthesizeSpeech(text, lang);
-            setAiText(text); // Show what was spoken
+            const responseAudio = await synthesizeSpeech(aiResponseText, lang);
+            setAiText(aiResponseText); // Show what was spoken
 
             // Step 4: Play the audio response
             await playAudioBlob(responseAudio);

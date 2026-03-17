@@ -4,7 +4,31 @@
  */
 
 // Python Chat backend base URL (same host as WS, different port)
-const VOICE_API_URL = `${import.meta.env.VITE_CHAT_API_URL || 'http://localhost:8001'}/api/voice`;
+const CHAT_API_BASE = import.meta.env.VITE_CHAT_API_URL || 'http://localhost:8001';
+const VOICE_API_URL = `${CHAT_API_BASE}/api/voice`;
+const TEXT_CHAT_API_URL = `${CHAT_API_BASE}/api/chat`;
+
+/**
+ * Send transcribed text to the backend LLM for a conversational reply.
+ * This bypasses DB storage for quick Voice Overlay responses.
+ */
+export const generateVoiceChatReply = async (text: string, language?: string): Promise<string> => {
+    const response = await fetch(`${TEXT_CHAT_API_URL}/generate`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message: text, language: language || 'ta' }),
+    });
+
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: 'AI request failed' }));
+        throw new Error(err.error || `AI failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.response;
+};
 
 /**
  * Send audio blob to the backend for speech-to-text transcription.
