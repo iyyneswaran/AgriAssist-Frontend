@@ -1,4 +1,5 @@
 import { API_BASE_URL } from './authService';
+import { apiFetch } from './apiFetch';
 import type { ChatHistoryItem } from '../components/ChatSidebar';
 
 export interface PaginatedResponse<T> {
@@ -23,7 +24,7 @@ export interface ChatMessage {
 
 // Get user's conversation list
 export const getMyConversations = async (token: string, page = 1, limit = 20): Promise<PaginatedResponse<ChatHistoryItem>> => {
-    const response = await fetch(`${API_BASE_URL}/chat/conversations?page=${page}&limit=${limit}`, {
+    const response = await apiFetch(`${API_BASE_URL}/chat/conversations?page=${page}&limit=${limit}`, {
         method: 'GET',
         headers: {
             'Authorization': `Bearer ${token}`
@@ -39,7 +40,7 @@ export const getMyConversations = async (token: string, page = 1, limit = 20): P
 };
 
 export const addMessage = async (token: string, conversationId: string, messageData: any) => {
-    const response = await fetch(`${API_BASE_URL}/chat/conversations/${conversationId}/messages`, {
+    const response = await apiFetch(`${API_BASE_URL}/chat/conversations/${conversationId}/messages`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -57,7 +58,7 @@ export const addMessage = async (token: string, conversationId: string, messageD
 };
 
 export const deleteConversation = async (token: string, conversationId: string) => {
-    const response = await fetch(`${API_BASE_URL}/chat/conversations/${conversationId}`, {
+    const response = await apiFetch(`${API_BASE_URL}/chat/conversations/${conversationId}`, {
         method: 'DELETE',
         headers: {
             'Authorization': `Bearer ${token}`
@@ -75,7 +76,7 @@ export const deleteConversation = async (token: string, conversationId: string) 
 
 // Start a new conversation (creates DB record)
 export const startConversation = async (token: string, fieldId?: string, cropAssignmentId?: string) => {
-    const response = await fetch(`${API_BASE_URL}/chat/conversations`, {
+    const response = await apiFetch(`${API_BASE_URL}/chat/conversations`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -94,7 +95,7 @@ export const startConversation = async (token: string, fieldId?: string, cropAss
 
 // Get messages for a specific conversation
 export const getConversationMessages = async (token: string, conversationId: string, page = 1, limit = 50): Promise<PaginatedResponse<ChatMessage>> => {
-    const response = await fetch(`${API_BASE_URL}/chat/messages/${conversationId}?page=${page}&limit=${limit}`, {
+    const response = await apiFetch(`${API_BASE_URL}/chat/messages/${conversationId}?page=${page}&limit=${limit}`, {
         method: 'GET',
         headers: {
             'Authorization': `Bearer ${token}`

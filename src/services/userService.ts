@@ -1,3 +1,5 @@
+import { apiFetch } from './apiFetch';
+
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 export interface UserProfile {
@@ -9,7 +11,7 @@ export interface UserProfile {
 }
 
 export const getProfile = async (token: string): Promise<UserProfile> => {
-    const response = await fetch(`${API_URL}/user/profile`, {
+    const response = await apiFetch(`${API_URL}/user/profile`, {
         headers: {
             'Authorization': `Bearer ${token}`
         }
@@ -19,7 +21,7 @@ export const getProfile = async (token: string): Promise<UserProfile> => {
 };
 
 export const updateProfile = async (token: string, data: { name?: string, interface?: string }): Promise<{ user: UserProfile }> => {
-    const response = await fetch(`${API_URL}/user/profile`, {
+    const response = await apiFetch(`${API_URL}/user/profile`, {
         method: 'PATCH',
         headers: {
             'Content-Type': 'application/json',

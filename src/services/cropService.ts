@@ -1,3 +1,5 @@
+import { apiFetch } from './apiFetch';
+
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 export interface Crop {
@@ -17,7 +19,7 @@ export interface CropAssignment {
 }
 
 export const getActiveCrops = async (token: string): Promise<CropAssignment[]> => {
-    const response = await fetch(`${API_URL}/governance/active-assignments`, {
+    const response = await apiFetch(`${API_URL}/governance/active-assignments`, {
         headers: {
             'Authorization': `Bearer ${token}`
         }
@@ -31,7 +33,7 @@ export const getActiveCrops = async (token: string): Promise<CropAssignment[]> =
 };
 
 export const listCrops = async (token: string): Promise<Crop[]> => {
-    const response = await fetch(`${API_URL}/governance/crops`, {
+    const response = await apiFetch(`${API_URL}/governance/crops`, {
         headers: {
             'Authorization': `Bearer ${token}`
         }
@@ -45,7 +47,7 @@ export const listCrops = async (token: string): Promise<Crop[]> => {
 };
 
 export const assignCrop = async (token: string, fieldId: string, cropId: string, sowingDate: string): Promise<{ assignment: CropAssignment }> => {
-    const response = await fetch(`${API_URL}/governance/assignment`, {
+    const response = await apiFetch(`${API_URL}/governance/assignment`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',

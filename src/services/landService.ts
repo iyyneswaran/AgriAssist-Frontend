@@ -1,3 +1,5 @@
+import { apiFetch } from './apiFetch';
+
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 export interface CornerCoord {
@@ -20,7 +22,7 @@ export interface LandDetails {
 }
 
 export const getMyLand = async (token: string): Promise<LandDetails | null> => {
-    const response = await fetch(`${API_URL}/governance/land`, {
+    const response = await apiFetch(`${API_URL}/governance/land`, {
         headers: {
             'Authorization': `Bearer ${token}`
         }
@@ -35,7 +37,7 @@ export const getMyLand = async (token: string): Promise<LandDetails | null> => {
 };
 
 export const registerLand = async (token: string, data: LandDetails): Promise<{ land: LandDetails }> => {
-    const response = await fetch(`${API_URL}/governance/land`, {
+    const response = await apiFetch(`${API_URL}/governance/land`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -52,7 +54,7 @@ export const registerLand = async (token: string, data: LandDetails): Promise<{ 
 };
 
 export const updateLand = async (token: string, data: Partial<LandDetails>): Promise<{ land: LandDetails }> => {
-    const response = await fetch(`${API_URL}/governance/land`, {
+    const response = await apiFetch(`${API_URL}/governance/land`, {
         method: 'PATCH',
         headers: {
             'Content-Type': 'application/json',

@@ -1,4 +1,5 @@
 import { API_BASE_URL } from './authService';
+import { apiFetch } from './apiFetch';
 
 /**
  * Trigger a network fallback call or SMS when the user is offline.
@@ -18,7 +19,7 @@ export async function triggerNetworkFallback(params: {
     } = params;
 
     try {
-        const response = await fetch(`${API_BASE_URL}/voice-agent/network-fallback`, {
+        const response = await apiFetch(`${API_BASE_URL}/voice-agent/network-fallback`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ chatId, failedQuery, phoneNumber, channel }),
@@ -41,7 +42,7 @@ export async function triggerNetworkFallback(params: {
  */
 export async function triggerAICall(phoneNumber: string): Promise<{ success: boolean; error?: string }> {
     try {
-        const response = await fetch(`${API_BASE_URL}/voice-agent/make-call`, {
+        const response = await apiFetch(`${API_BASE_URL}/voice-agent/make-call`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ phoneNumber }),

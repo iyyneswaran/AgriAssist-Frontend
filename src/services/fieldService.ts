@@ -1,3 +1,5 @@
+import { apiFetch } from './apiFetch';
+
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 export interface Field {
@@ -8,7 +10,7 @@ export interface Field {
 }
 
 export const addField = async (token: string, data: { name: string, area: number }): Promise<{ field: Field }> => {
-    const response = await fetch(`${API_URL}/governance/field`, {
+    const response = await apiFetch(`${API_URL}/governance/field`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -25,7 +27,7 @@ export const addField = async (token: string, data: { name: string, area: number
 };
 
 export const getMyFields = async (token: string): Promise<Field[]> => {
-    const response = await fetch(`${API_URL}/governance/field`, {
+    const response = await apiFetch(`${API_URL}/governance/field`, {
         headers: {
             'Authorization': `Bearer ${token}`
         }

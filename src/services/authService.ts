@@ -1,3 +1,5 @@
+import { apiFetch } from './apiFetch';
+
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 // Types
@@ -16,7 +18,7 @@ export interface AuthResponse {
 
 // Request OTP
 export const requestOTP = async (phoneNumber: string): Promise<AuthResponse> => {
-    const response = await fetch(`${API_BASE_URL}/request-otp`, {
+    const response = await apiFetch(`${API_BASE_URL}/request-otp`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -34,7 +36,7 @@ export const requestOTP = async (phoneNumber: string): Promise<AuthResponse> => 
 
 // Verify OTP
 export const verifyOTP = async (phoneNumber: string, otp: string): Promise<AuthResponse> => {
-    const response = await fetch(`${API_BASE_URL}/verify-otp`, {
+    const response = await apiFetch(`${API_BASE_URL}/verify-otp`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -52,7 +54,7 @@ export const verifyOTP = async (phoneNumber: string, otp: string): Promise<AuthR
 
 // Update Profile
 export const updateProfile = async (name: string, token: string): Promise<AuthResponse> => {
-    const response = await fetch(`${API_BASE_URL}/user/profile`, {
+    const response = await apiFetch(`${API_BASE_URL}/user/profile`, {
         method: 'PATCH',
         headers: {
             'Content-Type': 'application/json',
