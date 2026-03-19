@@ -48,11 +48,11 @@ const RateLimitModal: React.FC = () => {
                     onClick={handleGoToSignIn}
                     style={styles.button}
                     onMouseEnter={(e) => {
-                        (e.target as HTMLButtonElement).style.background = '#16a34a';
+                        (e.target as HTMLButtonElement).style.background = 'linear-gradient(135deg, #8dd42a 0%, #6ab024 100%)';
                         (e.target as HTMLButtonElement).style.transform = 'scale(1.03)';
                     }}
                     onMouseLeave={(e) => {
-                        (e.target as HTMLButtonElement).style.background = '#22c55e';
+                        (e.target as HTMLButtonElement).style.background = 'linear-gradient(135deg, #A1E533 0%, #7bc62d 100%)';
                         (e.target as HTMLButtonElement).style.transform = 'scale(1)';
                     }}
                 >
@@ -76,14 +76,14 @@ const styles: Record<string, React.CSSProperties> = {
         animation: 'rateLimitFadeIn 0.3s ease-out',
     },
     modal: {
-        background: 'linear-gradient(145deg, #1a1a2e 0%, #16213e 100%)',
+        background: 'linear-gradient(145deg, #1E2923 0%, #2d3b32 100%)',
         borderRadius: '20px',
         padding: '40px 32px',
         maxWidth: '400px',
         width: '90%',
         textAlign: 'center' as const,
-        border: '1px solid rgba(34, 197, 94, 0.2)',
-        boxShadow: '0 25px 60px rgba(0, 0, 0, 0.5), 0 0 40px rgba(34, 197, 94, 0.1)',
+        border: '1px solid rgba(161, 229, 51, 0.2)',
+        boxShadow: '0 25px 60px rgba(0, 0, 0, 0.5), 0 0 40px rgba(161, 229, 51, 0.08)',
         animation: 'rateLimitSlideUp 0.4s ease-out',
     },
     iconWrapper: {
@@ -105,8 +105,8 @@ const styles: Record<string, React.CSSProperties> = {
     button: {
         width: '100%',
         padding: '14px 24px',
-        background: '#22c55e',
-        color: '#ffffff',
+        background: 'linear-gradient(135deg, #A1E533 0%, #7bc62d 100%)',
+        color: '#1E2923',
         border: 'none',
         borderRadius: '12px',
         fontSize: '16px',
@@ -114,6 +114,7 @@ const styles: Record<string, React.CSSProperties> = {
         cursor: 'pointer',
         transition: 'all 0.2s ease',
         letterSpacing: '0.01em',
+        boxShadow: '0 4px 16px rgba(161, 229, 51, 0.3)',
     },
 };
 

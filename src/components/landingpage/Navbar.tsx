@@ -9,7 +9,7 @@ const Navbar: React.FC = () => {
         <div className="bg-brand-green text-dark-green p-1.5 rounded-lg flex items-center justify-center">
           <Sprout size={24} strokeWidth={2.5} />
         </div>
-        <span className="text-2xl font-semibold tracking-tight">Agrovia</span>
+        <span className="text-2xl font-semibold tracking-tight">AgriAssist</span>
       </div>
 
       {/* Navigation Pill */}
@@ -30,7 +30,7 @@ const Navbar: React.FC = () => {
           Contact Us
         </a>
       </div>
-      
+
       {/* Mobile Menu Toggle (Placeholder) */}
       <div className="lg:hidden">
         {/* Placeholder for mobile menu icon */}

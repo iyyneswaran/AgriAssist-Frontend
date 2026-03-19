@@ -4,18 +4,18 @@ import { ArrowUpRight } from 'lucide-react';
 const cards = [
   {
     image: "https://images.unsplash.com/photo-1599839619722-39751411ea63?q=80&w=2070&auto=format&fit=crop",
-    title: "Precision Crop Management",
-    description: "Track soil, crops, and weather in real time for better decisions and higher yields."
+    title: "Instant Disease Diagnosis",
+    description: "Scan crops with your phone camera to identify diseases instantly and get actionable remedies."
   },
   {
     image: "https://images.unsplash.com/photo-1605000797499-95a51c5269ae?q=80&w=2071&auto=format&fit=crop",
-    title: "Smart Farm Automation",
-    description: "Automate irrigation and operations to save time, cut costs, and boost efficiency."
+    title: "Native Voice Assistant",
+    description: "Ask questions, check weather, and get farming advice in your own language, hands-free."
   },
   {
     image: "https://images.unsplash.com/photo-1523741543316-beb7fc7023d8?q=80&w=2036&auto=format&fit=crop",
-    title: "Sustainable Agriculture",
-    description: "Protect soil, conserve resources, and grow for the long term."
+    title: "Offline Reliability",
+    description: "Keep logging and viewing farm data even when you're out in the field with poor connection."
   }
 ];
 
@@ -29,17 +29,17 @@ const ModernFarmingCards: React.FC = () => {
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-light-gray text-xs font-semibold text-gray-600 tracking-wide uppercase mb-6">
               <span className="w-1.5 h-1.5 rounded-full bg-brand-green"></span>
-              Smart Farming
+              Core Features
             </div>
             
             <h2 className="text-4xl md:text-5xl font-medium text-dark-green leading-tight">
-              Smart Solutions for <br />
-              <span className="font-serif-italic">Modern Farming</span>
+              Tools Built Specifically <br />
+              <span className="font-serif-italic">For Farmers</span>
             </h2>
           </div>
           
           <p className="text-gray-500 max-w-md text-sm leading-relaxed">
-            We empower farmers with intelligent tools and data-driven insights to increase yields, reduce costs, and build a more sustainable agricultural future.
+            We empower farmers with accessible mobile tools, AI insights, and offline support to protect crops and ensure successful harvests.
           </p>
         </div>
 

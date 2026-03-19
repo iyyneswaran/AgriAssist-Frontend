@@ -13,12 +13,12 @@ import {
   FAQ, 
   CTA, 
   Footer 
-} from './components';
+} from '../components/landingpage';
 
 // Register GSAP plugins
 gsap.registerPlugin(ScrollTrigger);
 
-const App: React.FC = () => {
+const LandingPage: React.FC = () => {
   const mainRef = useRef<HTMLDivElement>(null);
 
   useLayoutEffect(() => {
@@ -104,4 +104,4 @@ const App: React.FC = () => {
   );
 };
 
-export default App;
+export default LandingPage;

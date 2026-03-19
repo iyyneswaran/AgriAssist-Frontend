@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Home from "./pages/Home";
+import LandingPage from "./pages/LandingPage";
 import Login from "./pages/Login";
 import SignUp from "./pages/SignUp";
 import Chat from "./pages/Chat";
@@ -14,12 +15,12 @@ import { RateLimitProvider } from './context/RateLimitContext';
 import OfflineBanner from './components/OfflineBanner';
 import RateLimitModal from './components/RateLimitModal';
 
-// Simple protected route wrapper
+// Protected route wrapper — includes OfflineBanner & RateLimitModal so they only
+// appear inside the authenticated app (not on landing page, login, or signup).
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
-    // Return a sleek loading state matching the theme while checking local storage
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-green-500 border-t-transparent rounded-full animate-spin"></div>
@@ -27,12 +28,17 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     );
   }
 
-  // If not authenticated, redirect to login
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      <OfflineBanner />
+      <RateLimitModal />
+      {children}
+    </>
+  );
 };
 
 export default function App() {
@@ -40,14 +46,13 @@ export default function App() {
     <AuthProvider>
       <RateLimitProvider>
         <AppDataProvider>
-          <OfflineBanner />
-          <RateLimitModal />
           <Router>
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<SignUp />} />
+              <Route path="/" element={<LandingPage />} />
               <Route
-                path="/"
+                path="/home"
                 element={
                   <ProtectedRoute>
                     <Home />

@@ -25,13 +25,13 @@ const FeaturesTab: React.FC = () => {
             </div>
             
             <h2 className="text-4xl md:text-5xl font-medium text-dark-green leading-tight">
-              Smart Farming Made <br />
-              <span className="font-serif-italic">Simple and Efficient</span>
+              Intelligent Farming Made <br />
+              <span className="font-serif-italic">Simple and Accessible</span>
             </h2>
           </div>
           
           <p className="text-gray-500 max-w-sm text-sm leading-relaxed mt-4">
-            A smart farming platform that connects soil, crops, and operations to help farmers grow more efficiently and safely.
+            A comprehensive smart farming platform that brings disease diagnosis, weather insights, and AI assistance directly to your field.
           </p>
         </div>
 
@@ -150,19 +150,19 @@ const FeaturesTab: React.FC = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
             <div className="bg-white p-8 rounded-3xl text-center shadow-sm border border-gray-100">
                 <div className="text-4xl font-semibold text-dark-green mb-1 text-center">1.5M+</div>
-                <div className="text-xs font-medium text-gray-400 uppercase tracking-wide">Acres Monitored</div>
+                <div className="text-xs font-medium text-gray-400 uppercase tracking-wide">Crops Diagnosed</div>
             </div>
             <div className="bg-white p-8 rounded-3xl text-center shadow-sm border border-gray-100">
                 <div className="text-4xl font-semibold text-dark-green mb-1 text-center">500K+</div>
-                <div className="text-xs font-medium text-gray-400 uppercase tracking-wide">Farmers Empowered</div>
+                <div className="text-xs font-medium text-gray-400 uppercase tracking-wide">Farmers Supported</div>
             </div>
             <div className="bg-white p-8 rounded-3xl text-center shadow-sm border border-gray-100">
                 <div className="text-4xl font-semibold text-dark-green mb-1 text-center">2M+</div>
-                <div className="text-xs font-medium text-gray-400 uppercase tracking-wide">Farm Decisions Optimized</div>
+                <div className="text-xs font-medium text-gray-400 uppercase tracking-wide">AI Conversations</div>
             </div>
             <div className="bg-white p-8 rounded-3xl text-center shadow-sm border border-gray-100">
                 <div className="text-4xl font-semibold text-dark-green mb-1 text-center">750K+</div>
-                <div className="text-xs font-medium text-gray-400 uppercase tracking-wide">Successful Harvests</div>
+                <div className="text-xs font-medium text-gray-400 uppercase tracking-wide">Harvests Secured</div>
             </div>
         </div>
 

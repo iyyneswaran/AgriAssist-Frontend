@@ -6,7 +6,7 @@ const IntroStatement: React.FC = () => {
       <div className="container mx-auto px-8 max-w-5xl">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-light-gray text-xs font-semibold text-gray-600 tracking-wide uppercase mb-6">
           <span className="w-1.5 h-1.5 rounded-full bg-brand-green"></span>
-          Cultiva Legacy
+          AgriAssist
         </div>
         
         <h2 className="text-3xl md:text-5xl lg:text-6xl font-medium text-dark-green leading-tight max-w-4xl">

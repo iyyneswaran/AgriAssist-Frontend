@@ -5,28 +5,28 @@ import clsx from 'clsx';
 const faqs = [
   {
     id: 1,
-    question: "Does Agrovia support sustainable farming?",
-    answer: "Yes, our tools are built to help optimize resource usage, reduce waste, and promote long-term soil health."
+    question: "Does AgriAssist support sustainable farming?",
+    answer: "Yes, our tools are built to help optimize resource usage, reduce waste, and promote long-term soil health through precision diagnosis."
   },
   {
     id: 2,
-    question: "Can I monitor multiple fields at once?",
-    answer: "Absolutely. Agrovia allows you to manage and track multiple fields from a single dashboard for better control and visibility."
+    question: "Can I diagnose diseases in different crops?",
+    answer: "Absolutely. AgriAssist supports a wide range of crops and can identify numerous diseases with high accuracy using AI image analysis."
   },
   {
     id: 3,
-    question: "How do I get started with Agrovia?",
-    answer: "Getting started is easy. Simply contact our sales team to set up an account, and our onboarding specialists will help you connect your sensors and data sources."
+    question: "How do I get started with AgriAssist?",
+    answer: "Getting started is easy. Simply sign up, add your farm details, and you can immediately start scanning crops or chatting with our AI assistant."
   },
   {
     id: 4,
-    question: "Is Agrovia easy to use for non-technical farmers?",
-    answer: "Yes! We designed the interface to be intuitive and accessible, turning complex data into simple, actionable insights."
+    question: "Is AgriAssist easy to use for non-technical farmers?",
+    answer: "Yes! We designed the interface to be intuitive and accessible, and our multilingual voice assistant makes it as easy as having a conversation."
   },
   {
     id: 5,
-    question: "Can Agrovia help reduce farming costs?",
-    answer: "By optimizing irrigation, fertilizer application, and providing early warnings for potential issues, Agrovia helps significantly lower unnecessary expenditures."
+    question: "Can AgriAssist work offline?",
+    answer: "Yes, AgriAssist is built with offline capabilities so you can access key features, your farm profile, and rate-limited features even with poor connectivity."
   }
 ];
 
@@ -49,7 +49,7 @@ const FAQ: React.FC = () => {
           </h2>
           
           <p className="text-gray-500 text-sm">
-            Got questions? We've got answers to help you get the most out of Agrovia.
+            Got questions? We've got answers to help you get the most out of AgriAssist.
           </p>
         </div>
 

@@ -5,28 +5,28 @@ import clsx from 'clsx';
 const solutions = [
   {
     id: 1,
-    title: 'Proven Farm Productivity',
+    title: 'Precision Disease Diagnosis',
     icon: <Sprout size={20} className="text-gray-500" />,
-    content: 'Boost your farm yields and manage resources more efficiently with our data-driven crop management tools.'
+    content: 'Instantly diagnose crop diseases and get actionable remedies with our advanced AI-driven image analysis.'
   },
   {
     id: 2,
-    title: 'Intelligent Crop Optimization',
+    title: 'Multilingual Voice Assistant',
     icon: <Sprout size={20} className="text-dark-green" />,
-    content: 'Our AI-powered system analyzes soil health, weather patterns, irrigation cycles, and crop growth data to recommend the most effective actions automatically, improving yield and reducing risk.',
+    content: 'Get instant farming advice and weather updates in your native language with our intelligent AI farm assistant.',
     activeIconClasses: 'bg-brand-green text-dark-green'
   },
   {
     id: 3,
-    title: 'Seamless Farm System Integration',
+    title: 'Real-time Weather & Mapping',
     icon: <Tractor size={20} className="text-gray-500" />,
-    content: 'Connect all your farm equipment, sensors, and management software into a single unified dashboard.'
+    content: 'Plan your farming activities with hyper-local weather forecasts and precise GPS field mapping.'
   },
   {
     id: 4,
-    title: 'Smart Water & Resource Management',
+    title: 'Offline & Low-Bandwidth Ready',
     icon: <Droplet size={20} className="text-gray-500" />,
-    content: 'Optimize your irrigation schedules and monitor water usage in real-time to conserve resources and reduce costs.'
+    content: 'Access critical farm data and previously saved insights even when cellular connectivity drops.'
   }
 ];
 
@@ -42,7 +42,7 @@ const Solutions: React.FC = () => {
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-light-gray text-xs font-semibold text-gray-600 tracking-wide uppercase mb-6">
               <span className="w-1.5 h-1.5 rounded-full bg-brand-green"></span>
-              About Agrovia
+              About AgriAssist
             </div>
             
             <h2 className="text-4xl md:text-5xl font-medium text-dark-green leading-tight">
