@@ -36,7 +36,7 @@ const Footer: React.FC = () => {
                         <div className="w-8 h-8 rounded-full border border-gray-200 flex items-center justify-center">
                            <Mail size={14} className="text-gray-500" />
                         </div>
-                        hello@agrovia.com
+                        AgriAssist@gmail.com
                      </div>
 
                      <div className="w-full">

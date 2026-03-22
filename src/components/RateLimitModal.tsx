@@ -1,19 +1,20 @@
 import React from 'react';
 import { useRateLimit } from '../context/RateLimitContext';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 const RateLimitModal: React.FC = () => {
     const { rateLimitHit, clearRateLimit } = useRateLimit();
     const { logout } = useAuth();
+
+    const navigate = useNavigate();
 
     if (!rateLimitHit) return null;
 
     const handleGoToSignIn = () => {
         clearRateLimit();
         logout();
-        // Navigate to login — since we're outside the Router in the tree,
-        // use window.location for a hard redirect.
-        window.location.href = '/login';
+        navigate('/login');
     };
 
     return (

@@ -40,7 +40,7 @@ export default function Login() {
 
                 // If they don't have a name, maybe they should be in signup flow, but we let them in
                 // or redirect to a profile completion page if needed. For now, go to Home.
-                navigate('/');
+                navigate('/home');
             }
         } catch (err: any) {
             setError(err.message || 'Invalid OTP');

@@ -45,7 +45,7 @@ export default function SignUp() {
                     setStep('profile');
                 } else {
                     // They already have a profile, just redirect
-                    navigate('/');
+                    navigate('/home');
                 }
             }
         } catch (err: any) {
@@ -65,7 +65,7 @@ export default function SignUp() {
             const response = await updateProfile(name, token);
             if (response.user) {
                 updateUser(response.user);
-                navigate('/');
+                navigate('/home');
             }
         } catch (err: any) {
             setError(err.message || 'Failed to update profile');
