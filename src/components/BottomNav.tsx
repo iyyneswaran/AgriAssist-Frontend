@@ -9,7 +9,7 @@ const BottomNav: React.FC = () => {
   const { t } = useTranslation();
 
   const navItems = [
-    { name: t('nav.home'), path: '/', icon: Home, code: 'home' },
+    { name: t('nav.home'), path: '/home', icon: Home, code: 'home' },
     { name: t('nav.forecast'), path: '/forecast', icon: ShieldAlert, code: 'forecast' },
     { name: t('nav.chat'), path: '/chat', icon: MessageCircle, code: 'chat' },
     { name: t('nav.farm'), path: '/farm-details', icon: LayoutGrid, code: 'farm' },

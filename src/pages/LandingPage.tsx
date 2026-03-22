@@ -1,4 +1,6 @@
-import React, { useLayoutEffect, useRef } from 'react';
+import React, { useLayoutEffect, useRef, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { 
@@ -20,8 +22,27 @@ gsap.registerPlugin(ScrollTrigger);
 
 const LandingPage: React.FC = () => {
   const mainRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
+  const { isAuthenticated, isLoading } = useAuth();
+  const [isPWA] = useState(() => 
+    window.matchMedia('(display-mode: standalone)').matches || 
+    (window.navigator as any).standalone || 
+    document.referrer.includes('android-app://')
+  );
+
+  useEffect(() => {
+    if (isPWA && !isLoading) {
+      if (isAuthenticated) {
+        navigate('/home', { replace: true });
+      } else {
+        navigate('/login', { replace: true });
+      }
+    }
+  }, [isPWA, isLoading, isAuthenticated, navigate]);
 
   useLayoutEffect(() => {
+    if (isPWA) return; // Skip animations for PWA since we will redirect
+
     // A simple context to clean up animations when component unmounts
     const ctx = gsap.context(() => {
       
@@ -54,7 +75,15 @@ const LandingPage: React.FC = () => {
     }, mainRef);
 
     return () => ctx.revert(); // Cleanup on unmount
-  }, []);
+  }, [isPWA]);
+
+  if (isPWA) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-green-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   return (
     <div ref={mainRef} className="bg-light-gray min-h-screen text-dark-green font-sans overflow-x-hidden">
