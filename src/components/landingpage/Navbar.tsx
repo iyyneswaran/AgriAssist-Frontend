@@ -1,7 +1,11 @@
 import React from 'react';
 import { Home, Sprout } from 'lucide-react';
 
-const Navbar: React.FC = () => {
+interface NavbarProps {
+  onContactClick: () => void;
+}
+
+const Navbar: React.FC<NavbarProps> = ({ onContactClick }) => {
   return (
     <nav className="absolute top-0 left-0 right-0 z-50 flex items-center justify-between px-8 py-5 text-white">
       {/* Logo */}
@@ -26,9 +30,13 @@ const Navbar: React.FC = () => {
 
       {/* CTA Button */}
       <div className="hidden md:block">
-        <a href="#" className="bg-white text-dark-green hover:bg-gray-100 transition-colors px-6 py-2.5 rounded-full font-medium text-sm">
+        <button
+          type="button"
+          onClick={onContactClick}
+          className="bg-white text-dark-green hover:bg-gray-100 transition-colors px-6 py-2.5 rounded-full font-medium text-sm"
+        >
           Contact Us
-        </a>
+        </button>
       </div>
 
       {/* Mobile Menu Toggle (Placeholder) */}
