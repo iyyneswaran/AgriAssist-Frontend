@@ -1,10 +1,10 @@
 import React from 'react';
 
 interface CTAProps {
-  onContactClick: () => void;
+  onContactClick?: () => void;
 }
 
-const CTA: React.FC<CTAProps> = ({ onContactClick }) => {
+const CTA: React.FC<CTAProps> = ({ onContactClick = () => {} }) => {
   return (
     <div className="w-full bg-white pt-24 pb-32">
       <div className="container mx-auto px-8 max-w-4xl text-center">

@@ -451,7 +451,7 @@ export default function Profile() {
                                 }`}
                             >
                                 <LocateFixed size={13} />
-                                📍 Auto Detect
+                                Auto Detect
                             </button>
                             <button
                                 onClick={() => setLocationMode('manual')}
@@ -462,7 +462,7 @@ export default function Profile() {
                                 }`}
                             >
                                 <Pencil size={13} />
-                                ✏️ Manual Entry
+                                Manual Entry
                             </button>
                         </div>
 
