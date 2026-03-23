@@ -24,6 +24,7 @@ const LandingPage: React.FC = () => {
   const mainRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { isAuthenticated, isLoading } = useAuth();
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   const [isPWA] = useState(() => 
     window.matchMedia('(display-mode: standalone)').matches || 
     (window.navigator as any).standalone || 
@@ -77,6 +78,9 @@ const LandingPage: React.FC = () => {
     return () => ctx.revert(); // Cleanup on unmount
   }, [isPWA]);
 
+  const openContactModal = () => setIsContactModalOpen(true);
+  const closeContactModal = () => setIsContactModalOpen(false);
+
   if (isPWA) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
@@ -87,7 +91,7 @@ const LandingPage: React.FC = () => {
 
   return (
     <div ref={mainRef} className="bg-light-gray min-h-screen text-dark-green font-sans overflow-x-hidden">
-      <Navbar />
+      <Navbar onContactClick={openContactModal} />
       
       <main>
         {/* We wrap sections in divs with 'animate-section' to target them easily with GSAP */}
@@ -124,11 +128,90 @@ const LandingPage: React.FC = () => {
         </section>
         
         <section className="animate-section">
-          <CTA />
+          <CTA onContactClick={openContactModal} />
         </section>
       </main>
 
       <Footer />
+
+      {isContactModalOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center px-4">
+          <button
+            type="button"
+            aria-label="Close contact form"
+            onClick={closeContactModal}
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          />
+          <div className="relative z-[71] w-full max-w-lg rounded-3xl border border-white/15 bg-white p-6 shadow-2xl">
+            <div className="mb-6 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-2xl font-semibold text-dark-green">Contact Us</h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  Share your details and our team will get in touch.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeContactModal}
+                className="rounded-full border border-gray-200 px-3 py-1 text-sm text-gray-600 transition-colors hover:bg-gray-100"
+              >
+                Close
+              </button>
+            </div>
+
+            <form className="space-y-4">
+              <div>
+                <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-gray-500">
+                  Full Name
+                </label>
+                <input
+                  type="text"
+                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-700 outline-none transition-colors focus:border-dark-green/60"
+                  placeholder="Enter your name"
+                />
+              </div>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-gray-500">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-700 outline-none transition-colors focus:border-dark-green/60"
+                    placeholder="you@example.com"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-gray-500">
+                    Phone
+                  </label>
+                  <input
+                    type="tel"
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-700 outline-none transition-colors focus:border-dark-green/60"
+                    placeholder="+91 98765 43210"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-gray-500">
+                  Message
+                </label>
+                <textarea
+                  rows={4}
+                  className="w-full resize-none rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-700 outline-none transition-colors focus:border-dark-green/60"
+                  placeholder="Tell us what support you need"
+                />
+              </div>
+              <button
+                type="button"
+                className="w-full rounded-xl bg-dark-green px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-black"
+              >
+                Submit Details
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

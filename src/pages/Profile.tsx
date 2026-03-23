@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, MapPin, Loader2, Save, Plus, Trash2, LocateFixed, Pencil, Check, X } from 'lucide-react';
+import { ChevronLeft, MapPin, Loader2, Save, Plus, Trash2, LocateFixed, Pencil, Check, X, LogOut } from 'lucide-react';
 import BottomNav from '../components/BottomNav';
 import { useAuth } from '../context/AuthContext';
 import { getProfile, updateProfile } from '../services/userService';
@@ -34,7 +34,7 @@ const calculateAreaAcres = (corners: CornerCoord[]): number => {
 
 export default function Profile() {
     const navigate = useNavigate();
-    const { token } = useAuth();
+    const { token, logout } = useAuth();
     const { t } = useTranslation();
     const { refreshAll } = useAppData();
 
@@ -286,6 +286,11 @@ export default function Profile() {
         }
     };
 
+    const handleLogout = () => {
+        logout();
+        navigate('/login', { replace: true });
+    };
+
     if (isLoading) {
         return (
             <div className="relative min-h-screen w-full overflow-hidden flex flex-col items-center bg-black">
@@ -352,6 +357,13 @@ export default function Profile() {
                     <div className="px-5 py-2.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white/90 text-sm font-medium">
                         {t('profile.myProfile')}
                     </div>
+                    <button
+                        onClick={handleLogout}
+                        className="ml-auto flex items-center gap-1.5 rounded-full border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-medium text-red-300 transition-colors hover:bg-red-500/20"
+                    >
+                        <LogOut size={14} />
+                        Logout
+                    </button>
                 </div>
 
                 <div className="px-6 mt-6 space-y-8">
