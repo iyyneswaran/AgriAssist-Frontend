@@ -7,7 +7,7 @@ interface SensorLiveDataProps {
     userId: string;
 }
 
-export default function SensorLiveData({ userId }: SensorLiveDataProps) {
+export default function SensorLiveData({ userId: _userId }: SensorLiveDataProps) {
     const [sensor, setSensor] = useState<HardwareSensorData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);

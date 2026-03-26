@@ -4,7 +4,6 @@
  */
 
 const CHAT_API_URL = import.meta.env.VITE_CHAT_API_URL || 'http://localhost:8001';
-const SENSOR_HARDWARE_URL = import.meta.env.VITE_SENSOR_HARDWARE_URL || 'https://incised-scripturally-lois.ngrok-free.dev';
 
 export interface HardwareSensorData {
     temperature: number | null;
