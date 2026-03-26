@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { getSchemeRecommendations } from '../services/schemeService';
 import type { SchemeRecommendation } from '../services/schemeService';
-// import SensorLiveData from '../components/farm/SensorLiveData';
+import SensorLiveData from '../components/farm/SensorLiveData';
 import AdvancedAnalysis from '../components/farm/AdvancedAnalysis';
 
 // Crop image mapper from local assets
@@ -24,19 +24,6 @@ const cropImages: Record<string, string> = {
 const getCropImage = (cropName: string): string => {
     const key = cropName.toLowerCase();
     return cropImages[key] || cropImages['wheat'];
-};
-
-const getCropStageKey = (sowingDate: string, growthDays: number): string => {
-    const sowing = new Date(sowingDate);
-    const now = new Date();
-    const daysPassed = Math.floor((now.getTime() - sowing.getTime()) / (1000 * 60 * 60 * 24));
-    const progress = daysPassed / growthDays;
-    if (progress < 0.15) return 'farm.germination';
-    if (progress < 0.3) return 'farm.seedling';
-    if (progress < 0.5) return 'farm.vegetative';
-    if (progress < 0.7) return 'farm.flowering';
-    if (progress < 0.9) return 'farm.fruiting';
-    return 'farm.maturity';
 };
 
 // Score badge color helper
@@ -89,7 +76,7 @@ const hasValidRegion = (region: string | undefined): boolean => {
 export default function FarmDetails() {
     const { t } = useTranslation();
     const { token } = useAuth();
-    const { land, geoData, weather, isDataReady, fields, activeCrops } = useAppData();
+    const { land, geoData, isDataReady, fields, activeCrops } = useAppData();
 
     const loading = !isDataReady;
 
@@ -117,16 +104,10 @@ export default function FarmDetails() {
     // Prefer manual crop name from land, then fall back to assignment
     const cropName = (land?.plantedCropManual) || assignment?.crop?.name || t('farm.unassigned');
     const cropImg = getCropImage(cropName);
-    const cropStageKey = assignment
-        ? getCropStageKey(assignment.sowingDate, assignment.crop.growthDays)
-        : null;
-    const cropStage = cropStageKey ? t(cropStageKey) : '—';
-    const harvestDate = assignment?.harvestDate
-        ? new Date(assignment.harvestDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
-        : '—';
 
     // Extract GEE Farm Metrics
     const metrics = geoData?.farm_metrics;
+    const metricTemperature = metrics?.temperature_celsius ?? null;
 
     // Corners count
     const cornersCount = land?.corners && Array.isArray(land.corners) ? (land.corners as any[]).length : 0;
@@ -285,12 +266,12 @@ export default function FarmDetails() {
                             <p className="text-gray-200">
                                 {t('farm.soilType')} <span className="text-green-400">{mapSoilType(land.soilType)}</span>
                             </p>
-                            <p className="text-gray-200">
+                            {/* <p className="text-gray-200">
                                 {t('farm.cropStage')} <span className="text-green-400">{cropStage}</span>
                             </p>
                             <p className="text-gray-200">
                                 {t('farm.expectedHarvest')} <span className="text-green-400">{harvestDate}</span>
-                            </p>
+                            </p> */}
                             {cornersCount > 0 && (
                                 <p className="text-gray-200">
                                     📍 Boundary <span className="text-green-400">{cornersCount} corners mapped</span>
@@ -306,28 +287,28 @@ export default function FarmDetails() {
                                     <Sun size={20} className="text-yellow-400 fill-yellow-400 shrink-0" />
                                     <div>
                                         <p className="text-gray-400 text-[10px] uppercase tracking-wider">{t('farm.temperature', 'Temperature')}</p>
-                                        <p className="text-white text-sm font-medium">{weather?.temperature ? `${weather.temperature}°C` : '—'}</p>
+                                        <p className="text-white text-sm font-medium">{metricTemperature != null ? `${metricTemperature}°C` : '—'}</p>
                                     </div>
                                 </div>
                                 <div className="bg-[#1f261f]/80 backdrop-blur-md rounded-xl border border-white/10 p-3 flex items-center gap-3">
                                     <Droplet size={20} className="text-blue-400 fill-blue-400 shrink-0" />
                                     <div>
                                         <p className="text-gray-400 text-[10px] uppercase tracking-wider">{t('farm.humidity', 'Humidity')}</p>
-                                        <p className="text-white text-sm font-medium">{metrics?.humidity_percent ? `${metrics.humidity_percent}%` : '—'}</p>
+                                        <p className="text-white text-sm font-medium">{metrics?.humidity_percent != null ? `${metrics.humidity_percent}%` : '—'}</p>
                                     </div>
                                 </div>
                                 <div className="bg-[#1f261f]/80 backdrop-blur-md rounded-xl border border-white/10 p-3 flex items-center gap-3">
                                     <Activity size={20} className="text-teal-400 shrink-0" />
                                     <div>
                                         <p className="text-gray-400 text-[10px] uppercase tracking-wider">{t('farm.soilMoisture', 'Soil Moisture')}</p>
-                                        <p className="text-white text-sm font-medium">{metrics?.soil_moisture_mm ? `${metrics.soil_moisture_mm} mm` : '—'}</p>
+                                        <p className="text-white text-sm font-medium">{metrics?.soil_moisture_mm != null ? `${metrics.soil_moisture_mm} mm` : '—'}</p>
                                     </div>
                                 </div>
                                 <div className="bg-[#1f261f]/80 backdrop-blur-md rounded-xl border border-white/10 p-3 flex items-center gap-3">
                                     <Beaker size={20} className="text-purple-400 shrink-0" />
                                     <div>
                                         <p className="text-gray-400 text-[10px] uppercase tracking-wider">{t('farm.soilPh', 'Soil pH')}</p>
-                                        <p className="text-white text-sm font-medium">{metrics?.soil_ph ? metrics.soil_ph : '—'}</p>
+                                        <p className="text-white text-sm font-medium">{metrics?.soil_ph != null ? metrics.soil_ph : '—'}</p>
                                     </div>
                                 </div>
                             </div>
@@ -337,14 +318,14 @@ export default function FarmDetails() {
                 </div>
 
                 {/* ──────────── IoT Sensor Live Data ──────────── */}
-                {/* <div className="mt-6 px-4">
-                    <SensorLiveData userId={land.id || ''} />
-                </div> */}
+                <div className="mt-6 px-4">
+                    <SensorLiveData />
+                </div>
 
                 {/* ──────────── Advanced Analysis & Predictions ──────────── */}
                 <div className="mt-6 px-4">
                     <AdvancedAnalysis
-                        temperature={weather?.temperature ?? null}
+                        temperature={metricTemperature}
                         humidity={metrics?.humidity_percent ?? null}
                         soilMoisture={metrics?.soil_moisture_mm ?? null}
                         soilPh={metrics?.soil_ph ?? null}
