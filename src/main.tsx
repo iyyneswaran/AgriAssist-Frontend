@@ -1,12 +1,22 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
-import './i18n'; // <-- Import i18n configurations
+import './i18n'
 import App from './App.tsx'
-import { registerSW } from 'virtual:pwa-register'
 
-// Register Service Worker for PWA Support
-registerSW({ immediate: true })
+if ('serviceWorker' in navigator) {
+  if (import.meta.env.PROD) {
+    window.addEventListener('load', () => {
+      void navigator.serviceWorker.register('/sw.js', { scope: '/' })
+    })
+  } else {
+    void navigator.serviceWorker.getRegistrations().then((registrations) => {
+      registrations.forEach((registration) => {
+        void registration.unregister()
+      })
+    })
+  }
+}
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
