@@ -6,6 +6,8 @@ import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { getSchemeRecommendations } from '../services/schemeService';
 import type { SchemeRecommendation } from '../services/schemeService';
+// import SensorLiveData from '../components/farm/SensorLiveData';
+import AdvancedAnalysis from '../components/farm/AdvancedAnalysis';
 
 // Crop image mapper from local assets
 const cropImages: Record<string, string> = {
@@ -332,6 +334,21 @@ export default function FarmDetails() {
                         </div>
 
                     </div>
+                </div>
+
+                {/* ──────────── IoT Sensor Live Data ──────────── */}
+                {/* <div className="mt-6 px-4">
+                    <SensorLiveData userId={land.id || ''} />
+                </div> */}
+
+                {/* ──────────── Advanced Analysis & Predictions ──────────── */}
+                <div className="mt-6 px-4">
+                    <AdvancedAnalysis
+                        temperature={weather?.temperature ?? null}
+                        humidity={metrics?.humidity_percent ?? null}
+                        soilMoisture={metrics?.soil_moisture_mm ?? null}
+                        soilPh={metrics?.soil_ph ?? null}
+                    />
                 </div>
 
                 {/* ──────────── Government Schemes Section ──────────── */}

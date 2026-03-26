@@ -10,6 +10,9 @@ import {
     Droplets,
     Flame,
     CheckCircle2,
+    ChevronDown,
+    ChevronUp,
+    Lightbulb,
 } from 'lucide-react';
 import BottomNav from '../components/BottomNav';
 import { useAppData } from '../context/AppDataContext';
@@ -63,18 +66,38 @@ function riskTextColor(value: number): string {
     return 'text-green-400';
 }
 
-// ─── Alert helpers ──────────────────────────────────────────────────────
-function alertStyle(alert: string) {
-    const lower = alert.toLowerCase();
-    if (lower.includes('flood') || lower.includes('heavy'))
-        return { border: 'border-l-red-500', icon: 'text-red-400', bg: 'bg-red-500/10' };
-    if (lower.includes('heat') || lower.includes('high temp'))
-        return { border: 'border-l-orange-400', icon: 'text-orange-400', bg: 'bg-orange-500/10' };
-    if (lower.includes('cold') || lower.includes('drop'))
-        return { border: 'border-l-blue-400', icon: 'text-blue-400', bg: 'bg-blue-500/10' };
-    if (lower.includes('no immediate'))
-        return { border: 'border-l-green-500', icon: 'text-green-400', bg: 'bg-green-500/10' };
-    return { border: 'border-l-yellow-400', icon: 'text-yellow-400', bg: 'bg-yellow-500/10' };
+// ─── Alert Banner Component ─────────────────────────────────────────────
+interface AlertItem {
+    key: string; msgKey: string; recKey: string;
+    border: string; icon: string; bg: string; iconColor: string;
+}
+
+function AlertBanner({ alert, t }: { alert: AlertItem; t: (key: string) => string }) {
+    const [showRec, setShowRec] = useState(false);
+    return (
+        <div className={`glass-panel-dark rounded-2xl border-l-4 ${alert.border} ${alert.bg} border border-white/5 overflow-hidden`}>
+            <button onClick={() => setShowRec(!showRec)} className="w-full p-4 text-left">
+                <div className="flex items-start gap-3">
+                    <AlertTriangle size={18} className={`${alert.iconColor} mt-0.5 shrink-0`} />
+                    <div className="flex-1">
+                        <p className="text-gray-200 text-sm leading-relaxed">{t(alert.msgKey)}</p>
+                    </div>
+                    {showRec ? <ChevronUp size={14} className="text-gray-400 mt-1 shrink-0" /> : <ChevronDown size={14} className="text-gray-400 mt-1 shrink-0" />}
+                </div>
+            </button>
+            {showRec && (
+                <div className="px-4 pb-4 pt-0 border-t border-white/5">
+                    <div className="mt-2 bg-white/[0.03] rounded-lg p-3 flex items-start gap-2">
+                        <Lightbulb size={14} className="text-yellow-400 mt-0.5 shrink-0" />
+                        <div>
+                            <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">{t('forecastAlerts.recommendation')}</p>
+                            <p className="text-gray-300 text-xs leading-relaxed">{t(alert.recKey)}</p>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
 }
 
 // ─── NDVI helpers ───────────────────────────────────────────────────────
@@ -251,25 +274,33 @@ export default function Forecast() {
                     </div>
                 )}
 
-                {/* ─── Alert Banners ─────────────────────────────────── */}
+                {/* ─── Dynamic Risk Alert Banners ─────────────────────── */}
                 <div className="mt-5 px-4 space-y-3">
-                    {data.alerts.map((alert, idx) => {
-                        const style = alertStyle(alert);
-                        const isSafe = alert.toLowerCase().includes('no immediate');
-                        return (
-                            <div
-                                key={idx}
-                                className={`glass-panel-dark rounded-2xl p-4 border-l-4 ${style.border} ${style.bg} border border-white/5 flex items-start gap-3`}
-                            >
-                                {isSafe ? (
-                                    <CheckCircle2 size={18} className={`${style.icon} mt-0.5 shrink-0`} />
-                                ) : (
-                                    <AlertTriangle size={18} className={`${style.icon} mt-0.5 shrink-0`} />
-                                )}
-                                <p className="text-gray-200 text-sm leading-relaxed">{alert}</p>
-                            </div>
-                        );
-                    })}
+                    {(() => {
+                        const alerts: { key: string; msgKey: string; recKey: string; border: string; icon: string; bg: string; iconColor: string }[] = [];
+
+                        if (droughtRisk >= 70) alerts.push({ key: 'drought', msgKey: 'forecastAlerts.droughtHigh', recKey: 'forecastAlerts.droughtRec', border: 'border-l-red-500', icon: '🏜️', bg: 'bg-red-500/10', iconColor: 'text-red-400' });
+                        else if (droughtRisk >= 40) alerts.push({ key: 'drought', msgKey: 'forecastAlerts.droughtMod', recKey: 'forecastAlerts.droughtRec', border: 'border-l-amber-400', icon: '🏜️', bg: 'bg-amber-500/10', iconColor: 'text-amber-400' });
+
+                        if (floodRisk >= 70) alerts.push({ key: 'flood', msgKey: 'forecastAlerts.floodHigh', recKey: 'forecastAlerts.floodRec', border: 'border-l-blue-500', icon: '🌊', bg: 'bg-blue-500/10', iconColor: 'text-blue-400' });
+                        else if (floodRisk >= 40) alerts.push({ key: 'flood', msgKey: 'forecastAlerts.floodMod', recKey: 'forecastAlerts.floodRec', border: 'border-l-blue-400', icon: '🌊', bg: 'bg-blue-500/10', iconColor: 'text-blue-400' });
+
+                        if (heatRisk >= 70) alerts.push({ key: 'heat', msgKey: 'forecastAlerts.heatHigh', recKey: 'forecastAlerts.heatRec', border: 'border-l-orange-500', icon: '🔥', bg: 'bg-orange-500/10', iconColor: 'text-orange-400' });
+                        else if (heatRisk >= 40) alerts.push({ key: 'heat', msgKey: 'forecastAlerts.heatMod', recKey: 'forecastAlerts.heatRec', border: 'border-l-orange-400', icon: '🔥', bg: 'bg-orange-500/10', iconColor: 'text-orange-400' });
+
+                        if (alerts.length === 0) {
+                            return (
+                                <div className="glass-panel-dark rounded-2xl p-4 border-l-4 border-l-green-500 bg-green-500/10 border border-white/5 flex items-start gap-3">
+                                    <CheckCircle2 size={18} className="text-green-400 mt-0.5 shrink-0" />
+                                    <p className="text-gray-200 text-sm leading-relaxed">{t('forecastAlerts.noRisks')}</p>
+                                </div>
+                            );
+                        }
+
+                        return alerts.map(a => (
+                            <AlertBanner key={a.key} alert={a} t={t} />
+                        ));
+                    })()}
                 </div>
 
                 {/* ─── Metric Cards ──────────────────────────────────── */}
