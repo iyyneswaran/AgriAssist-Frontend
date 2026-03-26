@@ -109,7 +109,8 @@ export default defineConfig({
         navigateFallbackDenylist: [/^\/api/],
       },
       devOptions: {
-        enabled: false, // Set to true to test PWA in dev mode
+        enabled: true, // Set to true to test PWA in dev mode
+        type: 'module',
       },
     }),
   ],
