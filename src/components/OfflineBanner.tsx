@@ -1,22 +1,76 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { X } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { getDirectAICallUrl, triggerAICall } from '../services/networkFallbackService';
 
-const PING_INTERVAL_MS = 5_000;       // Check connectivity every 5 seconds
-const OFFLINE_THRESHOLD_MS = 30_000;  // Show call modal after 30s offline
-const PING_TIMEOUT_MS = 4_000;        // Consider offline if ping takes > 4s
+const PING_INTERVAL_MS = 5_000;
+const OFFLINE_THRESHOLD_MS = 30_000;
+const PING_TIMEOUT_MS = 4_000;
 const PING_URL = 'https://www.google.com/favicon.ico';
 
 export default function OfflineBanner() {
+  const { user } = useAuth();
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [showBanner, setShowBanner] = useState(!navigator.onLine);
   const [showCallModal, setShowCallModal] = useState(false);
+  const [callError, setCallError] = useState<string | null>(null);
+  const [isCalling, setIsCalling] = useState(false);
+  const directCallUrl = getDirectAICallUrl();
+  const useDirectDial = isOffline && !!directCallUrl;
 
-  const offlineStartRef = useRef<number | null>(navigator.onLine ? null : Date.now());
+  const offlineStartRef = useRef<number | null>(null);
   const modalShownRef = useRef(false);
   const pingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const bannerTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ── Connectivity check via actual HTTP ping ──
+  const handleDismiss = useCallback(() => {
+    setShowCallModal(false);
+    setCallError(null);
+    setIsCalling(false);
+  }, []);
+
+  const handleCloseBanner = useCallback(() => {
+    setShowBanner(false);
+    if (bannerTimeoutRef.current) {
+      clearTimeout(bannerTimeoutRef.current);
+    }
+  }, []);
+
+  const markOffline = useCallback(() => {
+    const now = Date.now();
+
+    if (!isOffline) {
+      setIsOffline(true);
+      setShowBanner(true);
+      offlineStartRef.current = now;
+    } else if (!offlineStartRef.current) {
+      offlineStartRef.current = now;
+    }
+
+    if (
+      offlineStartRef.current &&
+      !modalShownRef.current &&
+      now - offlineStartRef.current >= OFFLINE_THRESHOLD_MS
+    ) {
+      setShowCallModal(true);
+      modalShownRef.current = true;
+    }
+  }, [isOffline]);
+
+  const markOnline = useCallback(() => {
+    if (isOffline) {
+      setIsOffline(false);
+      setShowCallModal(false);
+      setShowBanner(true);
+      bannerTimeoutRef.current = setTimeout(() => setShowBanner(false), 3000);
+    }
+
+    offlineStartRef.current = null;
+    modalShownRef.current = false;
+    setCallError(null);
+    setIsCalling(false);
+  }, [isOffline]);
+
   const checkConnectivity = useCallback(async () => {
     try {
       const controller = new AbortController();
@@ -28,18 +82,11 @@ export default function OfflineBanner() {
         cache: 'no-store',
         signal: controller.signal,
       });
+
       clearTimeout(timeout);
 
       if (response.type === 'opaque' || response.ok) {
-        // ── ONLINE ──
-        if (isOffline) {
-          setIsOffline(false);
-          offlineStartRef.current = null;
-          modalShownRef.current = false;
-          setShowCallModal(false);
-          setShowBanner(true);
-          bannerTimeoutRef.current = setTimeout(() => setShowBanner(false), 3000);
-        }
+        markOnline();
         return;
       }
 
@@ -47,61 +94,80 @@ export default function OfflineBanner() {
     } catch {
       markOffline();
     }
-  }, [isOffline]);
+  }, [markOffline, markOnline]);
 
-  const markOffline = useCallback(() => {
-    if (!isOffline) {
-      setIsOffline(true);
-      setShowBanner(true);
+  const handleRequestCall = useCallback(async () => {
+    setCallError(null);
+
+    if (!navigator.onLine) {
+      if (directCallUrl) {
+        window.location.href = directCallUrl;
+        handleDismiss();
+        return;
+      }
+
+      setCallError('This device is fully offline. Server-triggered AI calls cannot start without internet. Add VITE_VOICE_AGENT_PHONE_NUMBER for direct dial fallback.');
+      return;
+    }
+
+    setIsCalling(true);
+
+    try {
+      const result = await triggerAICall(user?.phoneNumber);
+      if (!result.success) {
+        setCallError(result.error || 'Could not start the AI assistant call.');
+        return;
+      }
+
+      handleDismiss();
+    } catch (error) {
+      console.error('Failed to trigger AI call', error);
+      setCallError('Could not start the AI assistant call.');
+    } finally {
+      setIsCalling(false);
+    }
+  }, [directCallUrl, handleDismiss, user?.phoneNumber]);
+
+  useEffect(() => {
+    if (!navigator.onLine) {
       offlineStartRef.current = Date.now();
     }
+  }, []);
 
-    if (
-      offlineStartRef.current &&
-      !modalShownRef.current &&
-      Date.now() - offlineStartRef.current >= OFFLINE_THRESHOLD_MS
-    ) {
-      setShowCallModal(true);
-      modalShownRef.current = true;
-    }
-  }, [isOffline]);
-
-  // ── Start polling on mount ──
   useEffect(() => {
     const handleOffline = () => markOffline();
-    const handleOnline = () => checkConnectivity();
+    const handleOnline = () => {
+      void checkConnectivity();
+    };
 
     window.addEventListener('offline', handleOffline);
     window.addEventListener('online', handleOnline);
 
-    checkConnectivity();
-    pingIntervalRef.current = setInterval(checkConnectivity, PING_INTERVAL_MS);
+    void checkConnectivity();
+    pingIntervalRef.current = setInterval(() => {
+      void checkConnectivity();
+    }, PING_INTERVAL_MS);
 
     return () => {
       window.removeEventListener('offline', handleOffline);
       window.removeEventListener('online', handleOnline);
-      if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
-      if (bannerTimeoutRef.current) clearTimeout(bannerTimeoutRef.current);
+
+      if (pingIntervalRef.current) {
+        clearInterval(pingIntervalRef.current);
+      }
+
+      if (bannerTimeoutRef.current) {
+        clearTimeout(bannerTimeoutRef.current);
+      }
     };
   }, [checkConnectivity, markOffline]);
 
-  // ── Call handler ──
-  const handleDismiss = () => {
-    setShowCallModal(false);
-  };
-
-  const handleCloseBanner = () => {
-    setShowBanner(false);
-    if (bannerTimeoutRef.current) clearTimeout(bannerTimeoutRef.current);
-  };
-
-  // ─── Render ──────────────────────────────────
-
-  if (!showBanner && !showCallModal) return null;
+  if (!showBanner && !showCallModal) {
+    return null;
+  }
 
   return (
     <>
-      {/* ── Toast Banner ── */}
       {showBanner && (
         <div style={{
           position: 'fixed', top: '16px', left: '50%', transform: 'translateX(-50%)',
@@ -122,7 +188,6 @@ export default function OfflineBanner() {
           animation: 'ob-slideDown 0.4s ease-out',
           minWidth: '280px', maxWidth: '420px',
         }}>
-          {/* Status indicator dot */}
           <span style={{
             width: '10px', height: '10px', borderRadius: '50%', flexShrink: 0,
             background: isOffline ? '#ef4444' : '#A1E533',
@@ -133,10 +198,9 @@ export default function OfflineBanner() {
           }} />
 
           <span style={{ flex: 1 }}>
-            {isOffline ? 'You are offline — features may be limited' : 'Back online!'}
+            {isOffline ? 'You are offline - features may be limited' : 'Back online!'}
           </span>
 
-          {/* Close button */}
           <button
             onClick={handleCloseBanner}
             style={{
@@ -146,12 +210,12 @@ export default function OfflineBanner() {
               color: 'rgba(255,255,255,0.7)', transition: 'all 0.2s ease',
             }}
             onMouseEnter={(e) => {
-              (e.currentTarget).style.background = 'rgba(255,255,255,0.2)';
-              (e.currentTarget).style.color = '#fff';
+              e.currentTarget.style.background = 'rgba(255,255,255,0.2)';
+              e.currentTarget.style.color = '#fff';
             }}
             onMouseLeave={(e) => {
-              (e.currentTarget).style.background = 'rgba(255,255,255,0.1)';
-              (e.currentTarget).style.color = 'rgba(255,255,255,0.7)';
+              e.currentTarget.style.background = 'rgba(255,255,255,0.1)';
+              e.currentTarget.style.color = 'rgba(255,255,255,0.7)';
             }}
             aria-label="Dismiss notification"
           >
@@ -160,7 +224,6 @@ export default function OfflineBanner() {
         </div>
       )}
 
-      {/* ── Call Modal (shows after 30s offline) ── */}
       {showCallModal && isOffline && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 10000,
@@ -176,14 +239,13 @@ export default function OfflineBanner() {
             textAlign: 'center', fontFamily: "'Inter', sans-serif",
             animation: 'ob-scaleIn 0.3s ease-out',
           }}>
-            {/* Icon */}
             <div style={{
               width: '64px', height: '64px', margin: '0 auto 20px', borderRadius: '50%',
               background: 'linear-gradient(135deg, #ef4444 0%, #f97316 100%)',
               display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px',
               boxShadow: '0 8px 24px rgba(239, 68, 68, 0.3)',
               animation: 'ob-pulse 2s ease-in-out infinite',
-            }}>📡</div>
+            }}>CALL</div>
 
             <h2 style={{
               color: '#fff', fontSize: '20px', fontWeight: 700,
@@ -194,55 +256,42 @@ export default function OfflineBanner() {
               color: 'rgba(255,255,255,0.6)', fontSize: '14px',
               lineHeight: 1.5, margin: '0 0 24px',
             }}>
-              You've been offline for a while. Connect instantly via standard phone call to our AI assistant.
+              {useDirectDial
+                ? 'You are offline. Open the phone dialer and call the AI assistant directly.'
+                : 'You have been offline for a while. A server-triggered AI callback needs internet access from the backend.'}
             </p>
 
-            {/* Buttons */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <button
-                onClick={async (e) => {
-                  e.preventDefault();
-                  
-                  // Change button content to provide immediate feedback
-                  const btn = e.currentTarget;
-                  btn.innerHTML = '⏳ Initiating Call...';
-                  btn.disabled = true;
-
-                  try {
-                    const headers = { 'ngrok-skip-browser-warning': 'true' };
-                    
-                    // Try the actual backend Express route first
-                    let res = await fetch('https://incised-scripturally-lois.ngrok-free.dev/api/voice-agent/make-call', {
-                      method: 'POST',
-                      headers,
-                    }).catch(() => null);
-
-                    // If the first one fails or 404s, try the raw root route as requested by user
-                    if (!res || !res.ok) {
-                      await fetch('https://incised-scripturally-lois.ngrok-free.dev/make-call', {
-                        method: 'POST',
-                        headers,
-                      }).catch(() => null);
-                    }
-                    
-                  } catch (err) {
-                    console.error('Failed to trigger AI call', err);
-                  } finally {
-                    handleDismiss();
-                  }
-                }}
+                onClick={() => void handleRequestCall()}
+                disabled={isCalling}
                 style={{
                   width: '100%', padding: '14px 20px', borderRadius: '14px', border: 'none',
                   background: 'linear-gradient(135deg, #A1E533 0%, #7bc62d 100%)',
                   color: '#1E2923', fontSize: '16px', fontWeight: 600,
-                  cursor: 'pointer', transition: 'all 0.2s ease',
+                  cursor: isCalling ? 'not-allowed' : 'pointer', transition: 'all 0.2s ease',
                   boxShadow: '0 4px 16px rgba(161, 229, 51, 0.3)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
                   fontFamily: "'Inter', sans-serif", textDecoration: 'none', boxSizing: 'border-box',
+                  opacity: isCalling ? 0.8 : 1,
                 }}
               >
-                📞 Request AI Assistant Call
+                {isCalling ? 'Initiating Call...' : useDirectDial ? 'Open Phone Dialer' : 'Request AI Assistant Call'}
               </button>
+
+              {callError && (
+                <div style={{
+                  padding: '10px 12px',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(239, 68, 68, 0.25)',
+                  background: 'rgba(239, 68, 68, 0.08)',
+                  color: '#fca5a5',
+                  fontSize: '12px',
+                  lineHeight: 1.4,
+                }}>
+                  {callError}
+                </div>
+              )}
 
               <button
                 onClick={handleDismiss}
