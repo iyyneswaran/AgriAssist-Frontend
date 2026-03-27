@@ -121,8 +121,21 @@ export default function VoiceChatOverlay({ isOpen, onClose }: VoiceChatOverlayPr
             setVoiceState('thinking');
             setAiText(`${t('chat.processingPrefix')} "${text}"`);
 
+            // Step 1.5: Gather location for weather context
+            let lat: number | undefined;
+            let lon: number | undefined;
+            try {
+                const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+                    navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 3000 });
+                });
+                lat = pos.coords.latitude;
+                lon = pos.coords.longitude;
+            } catch (geoErr) {
+                console.warn('Geolocation unavailable, weather context skipped:', geoErr);
+            }
+
             // Step 2: Query the LLM endpoint natively
-            const aiResponseText = await generateVoiceChatReply(text, lang);
+            const aiResponseText = await generateVoiceChatReply(text, lang, lat, lon);
 
             // Step 3: TTS — synthesize response speech
             setVoiceState('speaking');

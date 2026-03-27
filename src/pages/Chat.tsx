@@ -167,12 +167,27 @@ export default function Chat() {
         setIsTyping(true);
 
         try {
+            // Get location for weather context
+            let lat: number | undefined;
+            let lon: number | undefined;
+            try {
+                const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+                    navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 3000 });
+                });
+                lat = pos.coords.latitude;
+                lon = pos.coords.longitude;
+            } catch (geoErr) {
+                console.warn('Geolocation unavailable, weather context will be skipped for text chat:', geoErr);
+            }
+
             // Send the message over HTTP
             const response = await addMessage(token, targetConvId as string, {
                 sender: 'USER',
                 messageType: 'TEXT',
                 textContent: currentText,
-                language: i18n.language
+                language: i18n.language,
+                latitude: lat,
+                longitude: lon
             });
 
             // Replace the mock message with the actual messages from the server

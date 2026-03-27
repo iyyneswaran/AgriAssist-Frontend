@@ -86,8 +86,6 @@ export default function OfflineBanner() {
   }, [checkConnectivity, markOffline]);
 
   // ── Call handler ──
-  const TWILIO_NUMBER = '+14195154083';
-
   const handleDismiss = () => {
     setShowCallModal(false);
   };
@@ -201,8 +199,23 @@ export default function OfflineBanner() {
 
             {/* Buttons */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <a
-                href={`tel:${TWILIO_NUMBER}`}
+              <button
+                onClick={async () => {
+                  try {
+                    // Try the exact URL requested by the user
+                    const res = await fetch('https://incised-scripturally-lois.ngrok-free.dev/make-call', {
+                      method: 'POST',
+                    });
+                    if (!res.ok) {
+                      // Fallback to the actual Express route just in case the user meant the base URL + the express route
+                      await fetch('https://incised-scripturally-lois.ngrok-free.dev/api/voice-agent/make-call', { method: 'POST' });
+                    }
+                    handleDismiss();
+                  } catch (e) {
+                    console.error('Failed to trigger AI call', e);
+                  }
+                }}
+                disabled={!isOffline} // Prevents multiple calls if already online? It's only shown if offline anyway.
                 style={{
                   width: '100%', padding: '14px 20px', borderRadius: '14px', border: 'none',
                   background: 'linear-gradient(135deg, #A1E533 0%, #7bc62d 100%)',
@@ -213,8 +226,8 @@ export default function OfflineBanner() {
                   fontFamily: "'Inter', sans-serif", textDecoration: 'none', boxSizing: 'border-box',
                 }}
               >
-                📞 Call AI Assistant
-              </a>
+                📞 Request AI Assistant Call
+              </button>
 
               <button
                 onClick={handleDismiss}

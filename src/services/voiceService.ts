@@ -12,13 +12,18 @@ const TEXT_CHAT_API_URL = `${CHAT_API_BASE}/api/chat`;
  * Send transcribed text to the backend LLM for a conversational reply.
  * This bypasses DB storage for quick Voice Overlay responses.
  */
-export const generateVoiceChatReply = async (text: string, language?: string): Promise<string> => {
+export const generateVoiceChatReply = async (text: string, language?: string, latitude?: number, longitude?: number): Promise<string> => {
     const response = await fetch(`${TEXT_CHAT_API_URL}/generate`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ message: text, language: language || 'ta' }),
+        body: JSON.stringify({ 
+            message: text, 
+            language: language || 'ta',
+            latitude,
+            longitude 
+        }),
     });
 
     if (!response.ok) {
