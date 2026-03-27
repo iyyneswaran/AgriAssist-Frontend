@@ -200,22 +200,37 @@ export default function OfflineBanner() {
             {/* Buttons */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <button
-                onClick={async () => {
+                onClick={async (e) => {
+                  e.preventDefault();
+                  
+                  // Change button content to provide immediate feedback
+                  const btn = e.currentTarget;
+                  btn.innerHTML = '⏳ Initiating Call...';
+                  btn.disabled = true;
+
                   try {
-                    // Try the exact URL requested by the user
-                    const res = await fetch('https://incised-scripturally-lois.ngrok-free.dev/make-call', {
+                    const headers = { 'ngrok-skip-browser-warning': 'true' };
+                    
+                    // Try the actual backend Express route first
+                    let res = await fetch('https://incised-scripturally-lois.ngrok-free.dev/api/voice-agent/make-call', {
                       method: 'POST',
-                    });
-                    if (!res.ok) {
-                      // Fallback to the actual Express route just in case the user meant the base URL + the express route
-                      await fetch('https://incised-scripturally-lois.ngrok-free.dev/api/voice-agent/make-call', { method: 'POST' });
+                      headers,
+                    }).catch(() => null);
+
+                    // If the first one fails or 404s, try the raw root route as requested by user
+                    if (!res || !res.ok) {
+                      await fetch('https://incised-scripturally-lois.ngrok-free.dev/make-call', {
+                        method: 'POST',
+                        headers,
+                      }).catch(() => null);
                     }
+                    
+                  } catch (err) {
+                    console.error('Failed to trigger AI call', err);
+                  } finally {
                     handleDismiss();
-                  } catch (e) {
-                    console.error('Failed to trigger AI call', e);
                   }
                 }}
-                disabled={!isOffline} // Prevents multiple calls if already online? It's only shown if offline anyway.
                 style={{
                   width: '100%', padding: '14px 20px', borderRadius: '14px', border: 'none',
                   background: 'linear-gradient(135deg, #A1E533 0%, #7bc62d 100%)',
