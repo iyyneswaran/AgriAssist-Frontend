@@ -29,6 +29,8 @@ export interface SensorLiveReading {
     createdAt: string;
 }
 
+export type SensorRealtimeStatus = 'connecting' | 'live' | 'closed' | 'error';
+
 export interface AnalysisItem {
     id: string;
     title: string;
@@ -81,28 +83,81 @@ export const getLatestSensorData = async (): Promise<SensorLiveReading | null> =
 };
 
 export const subscribeToSensorData = (
-    onInsert: (reading: SensorLiveReading) => void,
+    {
+        onReading,
+        onStatusChange,
+    }: {
+        onReading: (reading: SensorLiveReading) => void;
+        onStatusChange?: (status: SensorRealtimeStatus) => void;
+    },
 ): (() => void) => {
     if (!supabase) {
+        onStatusChange?.('error');
         return () => undefined;
     }
+
+    let active = true;
+    let syncPromise: Promise<void> | null = null;
+
+    const syncLatestReading = () => {
+        if (syncPromise) {
+            return syncPromise;
+        }
+
+        syncPromise = (async () => {
+            try {
+                const latestReading = await getLatestSensorData();
+                if (active && latestReading) {
+                    onReading(latestReading);
+                }
+            } catch {
+                if (active) {
+                    onStatusChange?.('error');
+                }
+            } finally {
+                syncPromise = null;
+            }
+        })();
+
+        return syncPromise;
+    };
 
     const channel = supabase
         .channel('sensor-data-live')
         .on(
             'postgres_changes',
             {
-                event: 'INSERT',
+                event: '*',
                 schema: 'public',
                 table: 'sensor_data',
             },
-            (payload) => {
-                onInsert(mapSensorRow(payload.new as SensorDataRow));
+            () => {
+                void syncLatestReading();
             },
         )
-        .subscribe();
+        .subscribe((status) => {
+            if (status === 'SUBSCRIBED') {
+                onStatusChange?.('live');
+                void syncLatestReading();
+                return;
+            }
+
+            if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+                onStatusChange?.('error');
+                return;
+            }
+
+            if (status === 'CLOSED') {
+                onStatusChange?.('closed');
+                return;
+            }
+
+            onStatusChange?.('connecting');
+        });
 
     return () => {
+        active = false;
+        onStatusChange?.('closed');
         void supabase.removeChannel(channel);
     };
 };

@@ -183,12 +183,10 @@ function computeAnalyses(
     // 6. pH & Nutrient Availability
     if (ph !== null) {
         let score: number, phTier: string;
-        if (ph < 5.0) { score = 80; phTier = 'vAcid'; }
-        else if (ph < 5.5) { score = 55; phTier = 'mAcid'; }
-        else if (ph <= 7.0) { score = 10; phTier = 'opt'; }
-        else if (ph <= 7.5) { score = 25; phTier = 'sAlk'; }
-        else if (ph <= 8.5) { score = 60; phTier = 'alk'; }
-        else { score = 85; phTier = 'hAlk'; }
+        if (ph < 5.5) { score = 80; phTier = 'sAcid'; }
+        else if (ph <= 6.5) { score = 30; phTier = 'mAcid'; }
+        else if (ph <= 7.5) { score = 10; phTier = 'neutral'; }
+        else { score = 65; phTier = 'alkaline'; }
         analyses.push({
             id: 'ph_nutrients', titleKey: 'analysis.phNutrients', icon: '🧪',
             severity: scoreToSeverity(score), score,
