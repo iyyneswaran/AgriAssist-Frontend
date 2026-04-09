@@ -284,10 +284,27 @@
     },
     "scan": {
         "analysisUsingAI": "Analysis using AI",
-        "uploadToBegin": "Upload a document to begin the analysis process.",
-        "chooseImages": "Choose image(s)",
+        "uploadToBegin": "Upload a crop leaf image to detect diseases using AI.",
+        "chooseImages": "Choose image",
         "noFileChosen": "No file chosen",
         "filesChosen": "{{count}} file(s) chosen",
-        "startAnalytic": "Start analytic with AI"
+        "startAnalytic": "Start analysis with AI",
+        "analyzing": "Analyzing your crop...",
+        "analyzingDesc": "Our AI is examining the leaf for diseases and generating a personalized remedy.",
+        "confidence": "Confidence",
+        "healthy": "Healthy Crop",
+        "noDisease": "No disease detected! Your crop looks healthy.",
+        "explanation": "What is this disease?",
+        "treatment": "Treatment Steps",
+        "prevention": "Preventive Measures",
+        "sensorAdvice": "Sensor-Based Advice",
+        "aiGenerated": "AI-Powered Remedy",
+        "fallbackRemedy": "Standard Remedy",
+        "scanAnother": "Scan Another",
+        "retry": "Try Again",
+        "error": "Analysis Failed",
+        "uploadFailed": "Failed to upload image. Please try again.",
+        "invalidType": "Only JPEG and PNG images are accepted.",
+        "fileTooLarge": "File is too large. Maximum size is 10MB."
     }
 }

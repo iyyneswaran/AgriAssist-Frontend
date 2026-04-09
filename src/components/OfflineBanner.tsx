@@ -98,33 +98,24 @@ export default function OfflineBanner() {
 
   const handleRequestCall = useCallback(async () => {
     setCallError(null);
+    setIsCalling(true);
 
-    if (!navigator.onLine) {
-      if (directCallUrl) {
-        window.location.href = directCallUrl;
-        handleDismiss();
-        return;
-      }
-
-      setCallError('This device is fully offline. Server-triggered AI calls cannot start without internet. Add VITE_VOICE_AGENT_PHONE_NUMBER for direct dial fallback.');
+    if (!navigator.onLine && directCallUrl) {
+      window.location.href = directCallUrl;
+      handleDismiss();
       return;
     }
 
-    setIsCalling(true);
-
     try {
-      const result = await triggerAICall(user?.phoneNumber);
-      if (!result.success) {
-        setCallError(result.error || 'Could not start the AI assistant call.');
-        return;
-      }
-
-      handleDismiss();
+      // Best-effort trigger without showing errors to the user
+      await triggerAICall(user?.phoneNumber);
     } catch (error) {
       console.error('Failed to trigger AI call', error);
-      setCallError('Could not start the AI assistant call.');
     } finally {
-      setIsCalling(false);
+      // Let the user see "Initiating Call..." for a brief moment before dismissing
+      setTimeout(() => {
+        handleDismiss();
+      }, 1500);
     }
   }, [directCallUrl, handleDismiss, user?.phoneNumber]);
 
