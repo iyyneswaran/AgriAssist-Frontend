@@ -1,21 +1,21 @@
-/**
- * Push Notification Service
- * ==========================
- * Handles VAPID key exchange, push subscription management,
- * notification preferences, and notification list operations.
- *
- * Works with the Service Worker for background push delivery.
- */
-
+import { registerAgriAssistServiceWorker, sendVapidKeyToServiceWorker } from '../pwa/registerServiceWorker';
 import { apiFetch } from './apiFetch';
 
-const API_BASE = import.meta.env.VITE_API_BASE || '';
-
-// ─── Types ───
+const CHAT_API_URL = (
+  import.meta.env.VITE_CHAT_API_URL ||
+  import.meta.env.VITE_API_BASE ||
+  'http://localhost:8001'
+).replace(/\/$/, '');
 
 interface PushSubscriptionKeys {
   p256dh: string;
   auth: string;
+}
+
+interface BrowserPushSubscriptionJSON {
+  endpoint?: string;
+  expirationTime?: number | null;
+  keys?: Partial<PushSubscriptionKeys>;
 }
 
 interface PushSubscriptionPayload {
@@ -23,9 +23,51 @@ interface PushSubscriptionPayload {
   keys: PushSubscriptionKeys;
   device_name?: string;
   user_agent?: string;
+  browser?: string;
+  platform?: string;
+  expiration_time?: number | null;
+  content_encoding?: string;
 }
 
-interface NotificationPreferences {
+export interface PushSubscriptionResponse {
+  id: string;
+  endpoint: string;
+  device_name: string | null;
+  browser: string | null;
+  platform: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string | null;
+  last_success_at: string | null;
+  failure_count: number;
+}
+
+export interface PushStatusResponse {
+  vapid_configured: boolean;
+  subscriptions: PushSubscriptionResponse[];
+}
+
+export interface PushDiagnosticsResponse {
+  vapid_configured: boolean;
+  active_subscription_count: number;
+  inactive_subscription_count: number;
+  last_delivery_status: string | null;
+  last_delivery_error: string | null;
+  last_delivery_at: string | null;
+  last_subscription_success_at: string | null;
+  max_subscriptions_per_user: number;
+}
+
+export interface PushSupportStatus {
+  supported: boolean;
+  serviceWorker: boolean;
+  notification: boolean;
+  pushManager: boolean;
+  secureContext: boolean;
+  permission: NotificationPermission;
+}
+
+export interface NotificationPreferences {
   enabled: boolean;
   irrigation_alerts: boolean;
   disease_alerts: boolean;
@@ -39,7 +81,7 @@ interface NotificationPreferences {
   language: string;
 }
 
-interface NotificationItem {
+export interface NotificationItem {
   id: string;
   title: string;
   body: string;
@@ -52,7 +94,7 @@ interface NotificationItem {
   payload: Record<string, unknown>;
 }
 
-interface NotificationListResponse {
+export interface NotificationListResponse {
   notifications: NotificationItem[];
   total: number;
   page: number;
@@ -60,12 +102,10 @@ interface NotificationListResponse {
   unread_count: number;
 }
 
-interface NotificationCountResponse {
+export interface NotificationCountResponse {
   unread_count: number;
   total_count: number;
 }
-
-// ─── Auth Helper ───
 
 function getAuthHeaders(): HeadersInit {
   const token = localStorage.getItem('token');
@@ -76,123 +116,224 @@ function getAuthHeaders(): HeadersInit {
   };
 }
 
-// ─── Push Subscription Management ───
-
-/**
- * Get the VAPID public key from the server.
- */
-export async function getVAPIDPublicKey(): Promise<string> {
-  const res = await apiFetch(`${API_BASE}/api/notifications/push/vapid-key`);
-  if (!res.ok) throw new Error('Failed to get VAPID public key');
-  const data = await res.json();
-  return data.public_key;
-}
-
-/**
- * Convert a VAPID public key string to a Uint8Array for use with
- * PushManager.subscribe().
- */
-function urlBase64ToArrayBuffer(base64String: string): ArrayBuffer {
+function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
   const rawData = window.atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; ++i) {
+  const outputArray = new Uint8Array(new ArrayBuffer(rawData.length));
+  for (let i = 0; i < rawData.length; i += 1) {
     outputArray[i] = rawData.charCodeAt(i);
   }
-  return outputArray.buffer;
+  return outputArray;
 }
 
-/**
- * Subscribe the current device for push notifications.
- * This handles the full flow:
- * 1. Get VAPID public key from server
- * 2. Request browser push permission
- * 3. Create push subscription with the browser
- * 4. Send subscription to backend
- */
-export async function subscribeToPush(): Promise<boolean> {
-  try {
-    // Check browser support
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-      console.warn('[Push] Not supported in this browser');
-      return false;
-    }
-
-    // Get service worker registration
-    const registration = await navigator.serviceWorker.ready;
-
-    // Check existing subscription
-    const existingSub = await registration.pushManager.getSubscription();
-    if (existingSub) {
-      // Already subscribed — send to backend in case it's a new session
-      await sendSubscriptionToBackend(existingSub);
-      return true;
-    }
-
-    // Get VAPID key from server
-    const vapidKey = await getVAPIDPublicKey();
-    const applicationServerKey = urlBase64ToArrayBuffer(vapidKey);
-
-    // Request permission and create subscription
-    const subscription = await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey,
-    });
-
-    // Send to backend
-    await sendSubscriptionToBackend(subscription);
-    console.log('[Push] Subscription successful');
-    return true;
-  } catch (err) {
-    console.error('[Push] Subscription failed:', err);
+function arrayBufferEquals(left: ArrayBuffer | null, right: Uint8Array): boolean {
+  if (!left || left.byteLength !== right.byteLength) {
     return false;
   }
+
+  const leftView = new Uint8Array(left);
+  for (let i = 0; i < leftView.length; i += 1) {
+    if (leftView[i] !== right[i]) {
+      return false;
+    }
+  }
+  return true;
 }
 
-/**
- * Send the push subscription to the backend for storage.
- */
-async function sendSubscriptionToBackend(subscription: PushSubscription): Promise<void> {
-  const subJson = subscription.toJSON();
+function getPushJson(subscription: PushSubscription): BrowserPushSubscriptionJSON {
+  return subscription.toJSON() as BrowserPushSubscriptionJSON;
+}
+
+function getDeviceName(): string {
+  const ua = navigator.userAgent;
+  if (/iPhone|iPad/.test(ua)) return 'iOS Device';
+  if (/Android/.test(ua)) return 'Android Device';
+  if (/Windows/.test(ua)) return 'Windows PC';
+  if (/Mac/.test(ua)) return 'Mac';
+  if (/Linux/.test(ua)) return 'Linux';
+  return 'Browser Device';
+}
+
+function getBrowserName(): string {
+  const ua = navigator.userAgent;
+  if (/Edg\//.test(ua)) return 'Edge';
+  if (/Chrome|CriOS/.test(ua)) return 'Chrome';
+  if (/Firefox/.test(ua)) return 'Firefox';
+  if (/Safari/.test(ua)) return 'Safari';
+  return 'Unknown';
+}
+
+export function getPushSupportStatus(): PushSupportStatus {
+  const serviceWorker = 'serviceWorker' in navigator;
+  const notification = 'Notification' in window;
+  const pushManager = 'PushManager' in window;
+  const secureContext = window.isSecureContext || window.location.hostname === 'localhost';
+
+  return {
+    supported: serviceWorker && notification && pushManager && secureContext,
+    serviceWorker,
+    notification,
+    pushManager,
+    secureContext,
+    permission: notification ? Notification.permission : 'denied',
+  };
+}
+
+export function getPushPermission(): NotificationPermission {
+  return getPushSupportStatus().permission;
+}
+
+export async function requestNotificationPermission(): Promise<NotificationPermission> {
+  const support = getPushSupportStatus();
+  if (!support.notification) {
+    return 'denied';
+  }
+
+  if (Notification.permission !== 'default') {
+    return Notification.permission;
+  }
+
+  return Notification.requestPermission();
+}
+
+export async function getVAPIDPublicKey(): Promise<string> {
+  const response = await apiFetch(`${CHAT_API_URL}/api/notifications/push/vapid-key`);
+  if (!response.ok) {
+    throw new Error('Failed to get VAPID public key');
+  }
+  const data = await response.json() as { public_key: string };
+  sendVapidKeyToServiceWorker(data.public_key);
+  return data.public_key;
+}
+
+export async function registerBrowserPushSubscription(): Promise<PushSubscriptionResponse> {
+  const support = getPushSupportStatus();
+  if (!support.supported) {
+    throw new Error('Browser push notifications are not supported in this browser context');
+  }
+
+  const permission = await requestNotificationPermission();
+  if (permission !== 'granted') {
+    throw new Error(`Notification permission is ${permission}`);
+  }
+
+  const swResult = await registerAgriAssistServiceWorker();
+  if (!swResult.registration) {
+    throw new Error(swResult.error || 'Service worker is not registered');
+  }
+
+  const registration = await navigator.serviceWorker.ready;
+  const vapidKey = await getVAPIDPublicKey();
+  const applicationServerKey = urlBase64ToUint8Array(vapidKey);
+
+  const existingSubscription = await registration.pushManager.getSubscription();
+  if (existingSubscription) {
+    const existingKey = existingSubscription.options.applicationServerKey as ArrayBuffer | null;
+    if (arrayBufferEquals(existingKey, applicationServerKey)) {
+      return sendSubscriptionToBackend(existingSubscription);
+    }
+
+    await existingSubscription.unsubscribe();
+  }
+
+  const subscription = await registration.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey,
+  });
+
+  return sendSubscriptionToBackend(subscription);
+}
+
+export async function subscribeToPush(): Promise<boolean> {
+  await registerBrowserPushSubscription();
+  return true;
+}
+
+export async function syncExistingPushSubscription(): Promise<PushSubscriptionResponse | null> {
+  const support = getPushSupportStatus();
+  if (!support.serviceWorker || !support.pushManager || Notification.permission !== 'granted') {
+    return null;
+  }
+
+  await registerAgriAssistServiceWorker();
+  const registration = await navigator.serviceWorker.ready;
+  const subscription = await registration.pushManager.getSubscription();
+  if (!subscription) {
+    return null;
+  }
+
+  return sendSubscriptionToBackend(subscription);
+}
+
+async function sendSubscriptionToBackend(subscription: PushSubscription): Promise<PushSubscriptionResponse> {
+  const subJson = getPushJson(subscription);
+  if (!subscription.endpoint || !subJson.keys?.p256dh || !subJson.keys?.auth) {
+    throw new Error('Browser returned an incomplete push subscription');
+  }
+
   const payload: PushSubscriptionPayload = {
     endpoint: subscription.endpoint,
     keys: {
-      p256dh: subJson.keys?.p256dh || '',
-      auth: subJson.keys?.auth || '',
+      p256dh: subJson.keys.p256dh,
+      auth: subJson.keys.auth,
     },
     device_name: getDeviceName(),
     user_agent: navigator.userAgent,
+    browser: getBrowserName(),
+    platform: navigator.platform || getDeviceName(),
+    expiration_time: subJson.expirationTime ?? null,
+    content_encoding: 'aes128gcm',
   };
 
-  const res = await apiFetch(`${API_BASE}/api/notifications/push/subscribe`, {
+  const response = await apiFetch(`${CHAT_API_URL}/api/notifications/push/subscribe`, {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify(payload),
   });
 
-  if (!res.ok) {
-    throw new Error(`Backend subscription failed: ${res.status}`);
+  if (!response.ok) {
+    const detail = await response.json().catch(() => null) as { detail?: string } | null;
+    throw new Error(detail?.detail || `Backend subscription failed: ${response.status}`);
   }
+
+  return response.json();
 }
 
-/**
- * Unsubscribe from push notifications.
- */
 export async function unsubscribeFromPush(): Promise<void> {
+  const support = getPushSupportStatus();
+  if (!support.serviceWorker || !support.pushManager) {
+    return;
+  }
+
+  await registerAgriAssistServiceWorker();
   const registration = await navigator.serviceWorker.ready;
   const subscription = await registration.pushManager.getSubscription();
+  const endpoint = subscription?.endpoint;
+
   if (subscription) {
     await subscription.unsubscribe();
   }
+
+  if (endpoint) {
+    const response = await apiFetch(`${CHAT_API_URL}/api/notifications/push/unsubscribe`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ endpoint }),
+    });
+
+    if (!response.ok && response.status !== 404) {
+      throw new Error(`Backend unsubscribe failed: ${response.status}`);
+    }
+  }
 }
 
-/**
- * Check if push notifications are currently subscribed.
- */
 export async function isPushSubscribed(): Promise<boolean> {
-  if (!('serviceWorker' in navigator)) return false;
+  const support = getPushSupportStatus();
+  if (!support.serviceWorker || !support.pushManager) return false;
+
   try {
+    await registerAgriAssistServiceWorker();
     const registration = await navigator.serviceWorker.ready;
     const subscription = await registration.pushManager.getSubscription();
     return !!subscription;
@@ -201,23 +342,26 @@ export async function isPushSubscribed(): Promise<boolean> {
   }
 }
 
-/**
- * Get the current push notification permission state.
- */
-export function getPushPermission(): NotificationPermission {
-  if (!('Notification' in window)) return 'denied';
-  return Notification.permission;
+export async function getPushStatus(): Promise<PushStatusResponse> {
+  const response = await apiFetch(`${CHAT_API_URL}/api/notifications/push/status`, {
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) throw new Error('Failed to fetch push status');
+  return response.json();
 }
 
-// ─── Notification CRUD ───
+export async function getPushDiagnostics(): Promise<PushDiagnosticsResponse> {
+  const response = await apiFetch(`${CHAT_API_URL}/api/notifications/push/diagnostics`, {
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) throw new Error('Failed to fetch push diagnostics');
+  return response.json();
+}
 
-/**
- * Fetch paginated notification list.
- */
 export async function getNotifications(
   page = 1,
   pageSize = 20,
-  options?: { severity?: string; event_type?: string; unread_only?: boolean }
+  options?: { severity?: string; event_type?: string; unread_only?: boolean },
 ): Promise<NotificationListResponse> {
   const params = new URLSearchParams({
     page: String(page),
@@ -227,174 +371,152 @@ export async function getNotifications(
   if (options?.event_type) params.set('event_type', options.event_type);
   if (options?.unread_only) params.set('unread_only', 'true');
 
-  const res = await apiFetch(
-    `${API_BASE}/api/notifications?${params.toString()}`,
-    { headers: getAuthHeaders() }
-  );
-  if (!res.ok) throw new Error('Failed to fetch notifications');
-  return res.json();
-}
-
-/**
- * Get notification counts (unread + total).
- */
-export async function getNotificationCount(): Promise<NotificationCountResponse> {
-  const res = await apiFetch(`${API_BASE}/api/notifications/count`, {
+  const response = await apiFetch(`${CHAT_API_URL}/api/notifications?${params.toString()}`, {
     headers: getAuthHeaders(),
   });
-  if (!res.ok) throw new Error('Failed to get notification count');
-  return res.json();
+  if (!response.ok) throw new Error('Failed to fetch notifications');
+  return response.json();
 }
 
-/**
- * Mark specific notifications as read.
- */
+export async function getNotificationCount(): Promise<NotificationCountResponse> {
+  const response = await apiFetch(`${CHAT_API_URL}/api/notifications/count`, {
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) throw new Error('Failed to get notification count');
+  return response.json();
+}
+
 export async function markNotificationsRead(notificationIds: string[]): Promise<void> {
-  await apiFetch(`${API_BASE}/api/notifications/mark-read`, {
+  if (notificationIds.length === 0) return;
+
+  const response = await apiFetch(`${CHAT_API_URL}/api/notifications/mark-read`, {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify({ notification_ids: notificationIds }),
   });
+  if (!response.ok) throw new Error('Failed to mark notifications read');
 }
 
-/**
- * Mark all notifications as read.
- */
+export async function trackNotificationClick(payload: {
+  notification_id?: string | null;
+  history_id?: string | null;
+  action?: string | null;
+}): Promise<void> {
+  if (!payload.notification_id && !payload.history_id) return;
+
+  const response = await apiFetch(`${CHAT_API_URL}/api/notifications/track-click`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok && response.status !== 404) {
+    throw new Error('Failed to track notification click');
+  }
+}
+
 export async function markAllNotificationsRead(): Promise<void> {
-  await apiFetch(`${API_BASE}/api/notifications/mark-all-read`, {
+  const response = await apiFetch(`${CHAT_API_URL}/api/notifications/mark-all-read`, {
     method: 'POST',
     headers: getAuthHeaders(),
   });
+  if (!response.ok) throw new Error('Failed to mark all notifications read');
 }
 
-/**
- * Dismiss a notification.
- */
 export async function dismissNotification(notificationId: string): Promise<void> {
-  await apiFetch(`${API_BASE}/api/notifications/dismiss/${notificationId}`, {
+  const response = await apiFetch(`${CHAT_API_URL}/api/notifications/dismiss/${notificationId}`, {
     method: 'POST',
     headers: getAuthHeaders(),
   });
+  if (!response.ok && response.status !== 404) throw new Error('Failed to dismiss notification');
 }
 
-// ─── Notification Preferences ───
-
-/**
- * Get user notification preferences.
- */
 export async function getNotificationPreferences(): Promise<NotificationPreferences> {
-  const res = await apiFetch(`${API_BASE}/api/notifications/preferences`, {
+  const response = await apiFetch(`${CHAT_API_URL}/api/notifications/preferences`, {
     headers: getAuthHeaders(),
   });
-  if (!res.ok) throw new Error('Failed to fetch preferences');
-  return res.json();
+  if (!response.ok) throw new Error('Failed to fetch preferences');
+  return response.json();
 }
 
-/**
- * Update user notification preferences.
- */
 export async function updateNotificationPreferences(
-  prefs: Partial<NotificationPreferences>
+  prefs: Partial<NotificationPreferences>,
 ): Promise<NotificationPreferences> {
-  const res = await apiFetch(`${API_BASE}/api/notifications/preferences`, {
+  const response = await apiFetch(`${CHAT_API_URL}/api/notifications/preferences`, {
     method: 'PUT',
     headers: getAuthHeaders(),
     body: JSON.stringify(prefs),
   });
-  if (!res.ok) throw new Error('Failed to update preferences');
-  return res.json();
+  if (!response.ok) throw new Error('Failed to update preferences');
+  return response.json();
 }
 
-// ─── Pipeline Trigger ───
-
-/**
- * Manually trigger a notification pipeline evaluation.
- */
-export async function triggerEvaluation(
-  lat?: number,
-  lng?: number
-): Promise<void> {
+export async function triggerEvaluation(lat?: number, lng?: number): Promise<void> {
   const params = new URLSearchParams();
   if (lat !== undefined) params.set('latitude', String(lat));
   if (lng !== undefined) params.set('longitude', String(lng));
 
-  await apiFetch(
-    `${API_BASE}/api/notifications/evaluate?${params.toString()}`,
-    { method: 'POST', headers: getAuthHeaders() }
-  );
+  const response = await apiFetch(`${CHAT_API_URL}/api/notifications/evaluate?${params.toString()}`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) throw new Error('Failed to trigger notification evaluation');
 }
 
-/**
- * Send a test notification (for debugging).
- */
 export async function sendTestNotification(
   eventType = 'smart_irrigation',
   severity = 'medium',
-  message?: string
+  message?: string,
+  url?: string,
 ): Promise<void> {
-  await apiFetch(`${API_BASE}/api/notifications/test`, {
+  const response = await apiFetch(`${CHAT_API_URL}/api/notifications/test`, {
     method: 'POST',
     headers: getAuthHeaders(),
-    body: JSON.stringify({ event_type: eventType, severity, message }),
+    body: JSON.stringify({ event_type: eventType, severity, message, url }),
   });
+  if (!response.ok) throw new Error('Failed to send test notification');
 }
 
-// ─── Helpers ───
-
-function getDeviceName(): string {
-  const ua = navigator.userAgent;
-  if (/iPhone|iPad/.test(ua)) return 'iOS Device';
-  if (/Android/.test(ua)) return 'Android Device';
-  if (/Windows/.test(ua)) return 'Windows PC';
-  if (/Mac/.test(ua)) return 'Mac';
-  if (/Linux/.test(ua)) return 'Linux';
-  return 'Unknown Device';
-}
-
-// ─── Service Worker Message Listener Setup ───
-
-/**
- * Initialize the notification system listener for Service Worker messages.
- * Call this once in your app's entry point.
- */
 export function initNotificationListener(
-  onNotificationClick?: (data: { notification_id: string; event_type: string; url: string }) => void,
-  onMarkRead?: (notificationId: string) => void
+  onNotificationClick?: (data: { notification_id?: string; history_id?: string; event_type?: string; url: string }) => void,
+  onPushRenewalRequired?: () => void,
 ): () => void {
   const handler = (event: MessageEvent) => {
-    const { data } = event;
-    if (!data || !data.type) return;
+    const data = event.data as {
+      type?: string;
+      notification_id?: string;
+      history_id?: string;
+      event_type?: string;
+      url?: string;
+    } | null;
+
+    if (!data?.type) return;
 
     switch (data.type) {
       case 'NOTIFICATION_CLICK':
         onNotificationClick?.({
           notification_id: data.notification_id,
+          history_id: data.history_id,
           event_type: data.event_type,
-          url: data.url,
+          url: data.url || '/home',
         });
+        void trackNotificationClick({
+          notification_id: data.notification_id,
+          history_id: data.history_id,
+          action: 'click',
+        }).catch(() => undefined);
         break;
-      case 'MARK_NOTIFICATION_READ':
-        if (data.notification_id) {
-          onMarkRead?.(data.notification_id);
-          markNotificationsRead([data.notification_id]).catch(() => {});
-        }
+      case 'DISMISS_NOTIFICATION':
+        void dismissNotification(data.history_id || data.notification_id || '').catch(() => undefined);
+        break;
+      case 'PUSH_SUBSCRIPTION_CHANGED':
+        void syncExistingPushSubscription().catch(() => undefined);
+        break;
+      case 'PUSH_SUBSCRIPTION_RENEWAL_REQUIRED':
+        onPushRenewalRequired?.();
         break;
     }
   };
 
   navigator.serviceWorker?.addEventListener('message', handler);
-
-  // Return cleanup function
-  return () => {
-    navigator.serviceWorker?.removeEventListener('message', handler);
-  };
+  return () => navigator.serviceWorker?.removeEventListener('message', handler);
 }
-
-// ─── Exports ───
-
-export type {
-  NotificationItem,
-  NotificationListResponse,
-  NotificationCountResponse,
-  NotificationPreferences,
-};

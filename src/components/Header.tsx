@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Bell, ChevronDown } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getProfile } from '../services/userService';
+import { getNotificationCount } from '../services/notificationService';
 import { useTranslation } from 'react-i18next';
 
 const Header: React.FC = () => {
@@ -10,6 +11,7 @@ const Header: React.FC = () => {
   const { token } = useAuth();
   const { t, i18n } = useTranslation();
   const [firstName, setFirstName] = useState('Farmer');
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -26,6 +28,31 @@ const Header: React.FC = () => {
       }
     };
     fetchUser();
+  }, [token]);
+
+  useEffect(() => {
+    if (!token) return;
+
+    let active = true;
+    const loadNotificationCount = async () => {
+      try {
+        const count = await getNotificationCount();
+        if (active) {
+          setUnreadCount(count.unread_count);
+        }
+      } catch {
+        if (active) {
+          setUnreadCount(0);
+        }
+      }
+    };
+
+    void loadNotificationCount();
+    const intervalId = window.setInterval(loadNotificationCount, 60_000);
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+    };
   }, [token]);
 
   // Dynamic Date
@@ -57,11 +84,19 @@ const Header: React.FC = () => {
           </div>
         </div>
 
-        {/* Notification */}
-        <div className="relative p-2 bg-white/10 rounded-full border border-white/10">
+        <button
+          type="button"
+          onClick={() => navigate('/notifications')}
+          className="relative p-2 bg-white/10 rounded-full border border-white/10"
+          aria-label="Notifications"
+        >
           <Bell size={18} className="text-white" />
-          <span className="absolute top-2 right-2.5 w-1.5 h-1.5 bg-green-500 rounded-full border border-black"></span>
-        </div>
+          {unreadCount > 0 && (
+            <span className="absolute -right-1 -top-1 min-w-5 rounded-full border border-black bg-green-500 px-1 text-[10px] font-semibold text-black">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          )}
+        </button>
 
         {/* Profile Pic */}
         <button

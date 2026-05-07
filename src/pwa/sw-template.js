@@ -1,4 +1,5 @@
 const CACHE_VERSION = '__CACHE_VERSION__'
+const IS_DEV = __IS_DEV__
 const PRECACHE_NAME = `agriassist-precache-${CACHE_VERSION}`
 const RUNTIME_NAME = `agriassist-runtime-${CACHE_VERSION}`
 const PRECACHE_URLS = __PRECACHE_URLS__
@@ -10,12 +11,52 @@ const LEGACY_CACHE_NAMES = new Set([
   'image-cache',
 ])
 
+const NOTIF_DB_NAME = 'agriassist-notifications'
+const NOTIF_DB_VERSION = 2
+const NOTIF_STORE_NAME = 'notifications'
+const META_STORE_NAME = 'metadata'
+
+const EVENT_TYPE_TAGS = {
+  smart_irrigation: 'irrigation',
+  disease_warning: 'disease',
+  drought_intelligence: 'drought',
+  flood_prevention: 'flood',
+  resource_optimization: 'resource',
+  iot_offline: 'system',
+}
+
+const EVENT_TYPE_URLS = {
+  smart_irrigation: '/farm-details',
+  disease_warning: '/alerts/disease/latest',
+  drought_intelligence: '/forecast',
+  flood_prevention: '/forecast',
+  resource_optimization: '/farm-details',
+  iot_offline: '/farm-details',
+}
+
+const SEVERITY_OPTIONS = {
+  critical: { requireInteraction: true, renotify: true, vibrate: [220, 100, 220, 100, 220] },
+  high: { requireInteraction: true, renotify: true, vibrate: [220, 100, 220] },
+  medium: { requireInteraction: false, renotify: false, vibrate: [180, 80, 180] },
+  low: { requireInteraction: false, renotify: false, vibrate: [120] },
+  info: { requireInteraction: false, renotify: false, vibrate: [80] },
+}
+
+function debugLog(...args) {
+  if (IS_DEV) {
+    console.log('[AgriAssist SW]', ...args)
+  }
+}
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
     (async () => {
-      const cache = await caches.open(PRECACHE_NAME)
-      await cache.addAll(PRECACHE_URLS)
+      if (!IS_DEV) {
+        const cache = await caches.open(PRECACHE_NAME)
+        await cache.addAll(PRECACHE_URLS)
+      }
       await self.skipWaiting()
+      debugLog('installed', CACHE_VERSION)
     })(),
   )
 })
@@ -35,13 +76,17 @@ self.addEventListener('activate', (event) => {
       )
 
       await self.clients.claim()
+      debugLog('activated', CACHE_VERSION)
     })(),
   )
 })
 
 self.addEventListener('fetch', (event) => {
-  const { request } = event
+  if (IS_DEV) {
+    return
+  }
 
+  const { request } = event
   if (request.method !== 'GET') {
     return
   }
@@ -60,6 +105,75 @@ self.addEventListener('fetch', (event) => {
 
   if (url.origin === self.location.origin && shouldHandleStaticAsset(url, request)) {
     event.respondWith(handleStaticRequest(event))
+  }
+})
+
+self.addEventListener('push', (event) => {
+  event.waitUntil(handlePushEvent(event))
+})
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+
+  const data = event.notification.data || {}
+  if (event.action === 'dismiss') {
+    event.waitUntil(postMessageToWindowClients({ type: 'DISMISS_NOTIFICATION', ...data }))
+    return
+  }
+
+  event.waitUntil(openOrFocusApp(data.url || '/home', data))
+})
+
+self.addEventListener('notificationclose', (event) => {
+  const data = event.notification.data || {}
+  event.waitUntil(
+    Promise.all([
+      markIndexedNotification(data.notification_id, { is_dismissed: true }),
+      postMessageToWindowClients({ type: 'NOTIFICATION_CLOSED', ...data }),
+    ]),
+  )
+})
+
+self.addEventListener('pushsubscriptionchange', (event) => {
+  event.waitUntil(handlePushSubscriptionChange(event))
+})
+
+self.addEventListener('message', (event) => {
+  const message = event.data || {}
+
+  if (message.type === 'SKIP_WAITING') {
+    event.waitUntil(self.skipWaiting())
+    return
+  }
+
+  if (message.type === 'SET_VAPID_PUBLIC_KEY' && message.publicKey) {
+    event.waitUntil(setMetadata('vapidPublicKey', message.publicKey))
+    return
+  }
+
+  if (message.type === 'GET_UNREAD_COUNT') {
+    event.waitUntil(
+      getUnreadCount().then((count) => {
+        event.source?.postMessage({ type: 'UNREAD_COUNT', count })
+      }),
+    )
+    return
+  }
+
+  if (message.type === 'SHOW_LOCAL_TEST_NOTIFICATION') {
+    event.waitUntil(
+      self.registration.showNotification('AgriAssist Test Alert', {
+        body: message.body || 'Local service worker notification is working.',
+        icon: '/pwa-192x192.png',
+        badge: '/pwa-192x192.png',
+        tag: 'agriassist-local-test',
+        data: buildNotificationData({
+          event_type: 'system_test',
+          severity: 'info',
+          url: '/notifications',
+        }),
+      }),
+    )
   }
 })
 
@@ -101,15 +215,11 @@ async function handleNavigationRequest(event) {
       await cache.put(event.request, networkResponse.clone())
       await cache.put('/index.html', networkResponse.clone())
     }
-
     return networkResponse
-  } catch {
-    const cachedResponse = await caches.match(event.request)
-    if (cachedResponse) {
-      return cachedResponse
-    }
-
+  } catch (error) {
+    debugLog('navigation fallback', error)
     return (
+      (await caches.match(event.request)) ||
       (await caches.match('/index.html')) ||
       (await caches.match('/')) ||
       Response.error()
@@ -127,199 +237,200 @@ async function handleStaticRequest(event) {
       }
       return response
     })
-    .catch(() => undefined)
+    .catch((error) => {
+      debugLog('static fetch failed', error)
+      return undefined
+    })
 
   if (cachedResponse) {
     event.waitUntil(networkPromise)
     return cachedResponse
   }
 
-  const networkResponse = await networkPromise
-  return networkResponse || Response.error()
+  return (await networkPromise) || Response.error()
 }
 
-
-// ══════════════════════════════════════════════════════════════
-//  PUSH NOTIFICATION SYSTEM
-// ══════════════════════════════════════════════════════════════
-
-const NOTIF_DB_NAME = 'agriassist-notifications'
-const NOTIF_DB_VERSION = 1
-const NOTIF_STORE_NAME = 'notifications'
-
-// Severity → icon/badge mapping
-const SEVERITY_ICONS = {
-  critical: '/pwa-192x192.png',
-  high: '/pwa-192x192.png',
-  medium: '/pwa-192x192.png',
-  low: '/pwa-192x192.png',
-}
-
-// Event type → color tag for notification badge
-const EVENT_TYPE_TAGS = {
-  smart_irrigation: 'irrigation',
-  disease_warning: 'disease',
-  drought_intelligence: 'drought',
-  flood_prevention: 'flood',
-  resource_optimization: 'resource',
-  iot_offline: 'system',
-}
-
-/**
- * Handle incoming push notifications.
- * Works even when the PWA is closed or in background.
- */
-self.addEventListener('push', (event) => {
-  if (!event.data) return
-
-  let payload
-  try {
-    payload = event.data.json()
-  } catch {
-    payload = {
-      title: 'AgriAssist',
-      body: event.data.text() || 'New notification',
-      severity: 'medium',
-      event_type: 'unknown',
-    }
-  }
-
-  const title = payload.title || 'AgriAssist Alert'
+async function handlePushEvent(event) {
+  const payload = readPushPayload(event)
   const severity = payload.severity || 'medium'
-  const eventType = payload.event_type || 'unknown'
-  const tag = EVENT_TYPE_TAGS[eventType] || eventType
+  const eventType = payload.event_type || 'system'
+  const severityOptions = SEVERITY_OPTIONS[severity] || SEVERITY_OPTIONS.medium
+  const tag = payload.notification_id || `${EVENT_TYPE_TAGS[eventType] || eventType}-${Date.now()}`
 
   const options = {
-    body: payload.body || '',
-    icon: SEVERITY_ICONS[severity] || '/pwa-192x192.png',
-    badge: '/pwa-192x192.png',
+    body: payload.body || 'Open AgriAssist for the latest farm update.',
+    icon: payload.icon || '/pwa-192x192.png',
+    badge: payload.badge || '/pwa-192x192.png',
     tag: `agriassist-${tag}`,
-    renotify: severity === 'critical',
-    requireInteraction: severity === 'critical' || severity === 'high',
-    vibrate: severity === 'critical' ? [200, 100, 200, 100, 200] : [200, 100, 200],
-    data: {
-      notification_id: payload.notification_id,
-      event_type: eventType,
-      severity: severity,
-      url: getNotificationUrl(eventType),
-      timestamp: payload.timestamp || new Date().toISOString(),
-      payload: payload.data || {},
-    },
-    actions: getNotificationActions(eventType),
+    renotify: severityOptions.renotify,
+    requireInteraction: severityOptions.requireInteraction,
+    vibrate: severityOptions.vibrate,
+    timestamp: Date.now(),
+    data: buildNotificationData(payload),
+    actions: buildNotificationActions(eventType),
   }
 
-  event.waitUntil(
-    Promise.all([
-      self.registration.showNotification(title, options),
+  try {
+    await Promise.all([
+      self.registration.showNotification(payload.title || 'AgriAssist Alert', options),
       saveNotificationToIndexedDB(payload),
-    ]),
-  )
-})
-
-/**
- * Handle notification click — navigate to appropriate page.
- */
-self.addEventListener('notificationclick', (event) => {
-  event.notification.close()
-
-  const data = event.notification.data || {}
-  let targetUrl = data.url || '/home'
-
-  // Handle action button clicks
-  if (event.action === 'view_details') {
-    targetUrl = '/farm-details'
-  } else if (event.action === 'dismiss') {
-    // Mark as read via API if notification_id exists
-    if (data.notification_id) {
-      event.waitUntil(markNotificationRead(data.notification_id))
-    }
-    return
+    ])
+    debugLog('push displayed', payload.notification_id || eventType)
+  } catch (error) {
+    console.error('[AgriAssist SW] failed to display push notification', error)
   }
-
-  event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      // If the app is already open, focus it and navigate
-      for (const client of clientList) {
-        if ('focus' in client) {
-          client.focus()
-          client.postMessage({
-            type: 'NOTIFICATION_CLICK',
-            notification_id: data.notification_id,
-            event_type: data.event_type,
-            url: targetUrl,
-          })
-          return
-        }
-      }
-      // Otherwise, open a new window
-      if (self.clients.openWindow) {
-        return self.clients.openWindow(targetUrl)
-      }
-    }),
-  )
-})
-
-/**
- * Handle notification close (dismiss without clicking).
- */
-self.addEventListener('notificationclose', (event) => {
-  const data = event.notification.data || {}
-  if (data.notification_id) {
-    event.waitUntil(markNotificationRead(data.notification_id))
-  }
-})
-
-/**
- * Listen for messages from the main app thread.
- */
-self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'GET_UNREAD_COUNT') {
-    event.waitUntil(
-      getUnreadCount().then((count) => {
-        event.source.postMessage({ type: 'UNREAD_COUNT', count })
-      }),
-    )
-  }
-})
-
-// ─── Helper Functions ───
-
-function getNotificationUrl(eventType) {
-  const urlMap = {
-    smart_irrigation: '/farm-details',
-    disease_warning: '/scan-crop',
-    drought_intelligence: '/farm-details',
-    flood_prevention: '/farm-details',
-    resource_optimization: '/farm-details',
-    iot_offline: '/farm-details',
-  }
-  return urlMap[eventType] || '/home'
 }
 
-function getNotificationActions(eventType) {
-  if (eventType === 'disease_warning') {
-    return [
-      { action: 'view_details', title: '🔍 View Details' },
-      { action: 'dismiss', title: '✓ Got it' },
-    ]
+function readPushPayload(event) {
+  if (!event.data) {
+    return {
+      title: 'AgriAssist Alert',
+      body: 'A new farm alert is available.',
+      severity: 'medium',
+      event_type: 'system',
+    }
   }
+
+  try {
+    return event.data.json()
+  } catch {
+    return {
+      title: 'AgriAssist Alert',
+      body: event.data.text() || 'A new farm alert is available.',
+      severity: 'medium',
+      event_type: 'system',
+    }
+  }
+}
+
+function buildNotificationData(payload) {
+  const eventType = payload.event_type || 'system'
+  const targetUrl = buildTargetUrl(payload)
+
+  return {
+    notification_id: payload.notification_id,
+    history_id: payload.history_id,
+    event_id: payload.event_id,
+    event_type: eventType,
+    severity: payload.severity || 'medium',
+    url: targetUrl,
+    timestamp: payload.timestamp || new Date().toISOString(),
+    payload: payload.data || {},
+  }
+}
+
+function buildTargetUrl(payload) {
+  const eventType = payload.event_type || 'system'
+  const basePath = payload.url || EVENT_TYPE_URLS[eventType] || '/home'
+  const url = new URL(basePath, self.location.origin)
+
+  if (url.origin !== self.location.origin) {
+    return '/home'
+  }
+
+  if (payload.event_id && url.pathname.includes('/latest')) {
+    url.pathname = url.pathname.replace('/latest', `/${encodeURIComponent(payload.event_id)}`)
+  }
+
+  url.searchParams.set('from_push', '1')
+  if (payload.notification_id) {
+    url.searchParams.set('notification_id', payload.notification_id)
+  }
+  if (payload.history_id) {
+    url.searchParams.set('history_id', payload.history_id)
+  }
+  if (eventType) {
+    url.searchParams.set('event_type', eventType)
+  }
+
+  return `${url.pathname}${url.search}${url.hash}`
+}
+
+function buildNotificationActions() {
   return [
-    { action: 'view_details', title: '📋 View Details' },
-    { action: 'dismiss', title: '✓ Dismiss' },
+    { action: 'open', title: 'View' },
+    { action: 'dismiss', title: 'Dismiss' },
   ]
 }
 
-// ─── IndexedDB Persistence for Offline Notifications ───
+async function openOrFocusApp(targetUrl, data) {
+  const absoluteTarget = new URL(targetUrl, self.location.origin).href
+  const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+
+  for (const client of clientList) {
+    const clientUrl = new URL(client.url)
+    if (clientUrl.origin !== self.location.origin) {
+      continue
+    }
+
+    if ('navigate' in client) {
+      await client.navigate(absoluteTarget)
+    }
+    if ('focus' in client) {
+      await client.focus()
+    }
+    client.postMessage({ type: 'NOTIFICATION_CLICK', ...data, url: targetUrl })
+    return
+  }
+
+  if (self.clients.openWindow) {
+    await self.clients.openWindow(absoluteTarget)
+  }
+}
+
+async function postMessageToWindowClients(message) {
+  const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+  await Promise.all(clientList.map((client) => client.postMessage(message)))
+}
+
+async function handlePushSubscriptionChange(event) {
+  debugLog('push subscription changed')
+  const publicKey = await getMetadata('vapidPublicKey')
+  if (!publicKey) {
+    await postMessageToWindowClients({ type: 'PUSH_SUBSCRIPTION_RENEWAL_REQUIRED' })
+    return
+  }
+
+  try {
+    const subscription = await self.registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(publicKey),
+    })
+    await postMessageToWindowClients({
+      type: 'PUSH_SUBSCRIPTION_CHANGED',
+      subscription: subscription.toJSON(),
+    })
+    event.oldSubscription?.unsubscribe?.()
+  } catch (error) {
+    console.error('[AgriAssist SW] push subscription renewal failed', error)
+    await postMessageToWindowClients({ type: 'PUSH_SUBSCRIPTION_RENEWAL_REQUIRED' })
+  }
+}
 
 function openNotifDB() {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(NOTIF_DB_NAME, NOTIF_DB_VERSION)
     request.onupgradeneeded = (event) => {
       const db = event.target.result
+      let store
       if (!db.objectStoreNames.contains(NOTIF_STORE_NAME)) {
-        const store = db.createObjectStore(NOTIF_STORE_NAME, { keyPath: 'id', autoIncrement: true })
+        store = db.createObjectStore(NOTIF_STORE_NAME, { keyPath: 'id', autoIncrement: true })
+      } else {
+        store = event.target.transaction.objectStore(NOTIF_STORE_NAME)
+      }
+
+      if (!store.indexNames.contains('notification_id')) {
+        store.createIndex('notification_id', 'notification_id', { unique: false })
+      }
+      if (!store.indexNames.contains('timestamp')) {
         store.createIndex('timestamp', 'timestamp', { unique: false })
+      }
+      if (!store.indexNames.contains('is_read')) {
         store.createIndex('is_read', 'is_read', { unique: false })
+      }
+
+      if (!db.objectStoreNames.contains(META_STORE_NAME)) {
+        db.createObjectStore(META_STORE_NAME, { keyPath: 'key' })
       }
     }
     request.onsuccess = () => resolve(request.result)
@@ -333,22 +444,45 @@ async function saveNotificationToIndexedDB(payload) {
     const tx = db.transaction(NOTIF_STORE_NAME, 'readwrite')
     tx.objectStore(NOTIF_STORE_NAME).add({
       notification_id: payload.notification_id,
+      history_id: payload.history_id,
       title: payload.title,
       body: payload.body,
       severity: payload.severity,
       event_type: payload.event_type,
       timestamp: payload.timestamp || new Date().toISOString(),
       is_read: false,
+      is_dismissed: false,
       data: payload.data || {},
     })
-    await new Promise((resolve, reject) => {
-      tx.oncomplete = resolve
-      tx.onerror = () => reject(tx.error)
-    })
+    await waitForTransaction(tx)
     db.close()
-  } catch (err) {
-    // Non-critical: don't block push notification display
-    console.warn('[SW] Failed to save notification to IndexedDB:', err)
+  } catch (error) {
+    debugLog('failed to save notification to IndexedDB', error)
+  }
+}
+
+async function markIndexedNotification(notificationId, updates) {
+  if (!notificationId) {
+    return
+  }
+
+  try {
+    const db = await openNotifDB()
+    const tx = db.transaction(NOTIF_STORE_NAME, 'readwrite')
+    const store = tx.objectStore(NOTIF_STORE_NAME)
+    const index = store.index('notification_id')
+    const request = index.openCursor(IDBKeyRange.only(notificationId))
+    request.onsuccess = () => {
+      const cursor = request.result
+      if (cursor) {
+        cursor.update({ ...cursor.value, ...updates })
+        cursor.continue()
+      }
+    }
+    await waitForTransaction(tx)
+    db.close()
+  } catch (error) {
+    debugLog('failed to update IndexedDB notification', error)
   }
 }
 
@@ -356,12 +490,8 @@ async function getUnreadCount() {
   try {
     const db = await openNotifDB()
     const tx = db.transaction(NOTIF_STORE_NAME, 'readonly')
-    const index = tx.objectStore(NOTIF_STORE_NAME).index('is_read')
-    const request = index.count(IDBKeyRange.only(false))
-    const count = await new Promise((resolve) => {
-      request.onsuccess = () => resolve(request.result)
-      request.onerror = () => resolve(0)
-    })
+    const request = tx.objectStore(NOTIF_STORE_NAME).index('is_read').count(IDBKeyRange.only(false))
+    const count = await waitForRequest(request, 0)
     db.close()
     return count
   } catch {
@@ -369,17 +499,49 @@ async function getUnreadCount() {
   }
 }
 
-async function markNotificationRead(notificationId) {
+async function setMetadata(key, value) {
+  const db = await openNotifDB()
+  const tx = db.transaction(META_STORE_NAME, 'readwrite')
+  tx.objectStore(META_STORE_NAME).put({ key, value })
+  await waitForTransaction(tx)
+  db.close()
+}
+
+async function getMetadata(key) {
   try {
-    // Try to mark read via API
-    const clients = await self.clients.matchAll({ type: 'window' })
-    for (const client of clients) {
-      client.postMessage({
-        type: 'MARK_NOTIFICATION_READ',
-        notification_id: notificationId,
-      })
-    }
+    const db = await openNotifDB()
+    const tx = db.transaction(META_STORE_NAME, 'readonly')
+    const request = tx.objectStore(META_STORE_NAME).get(key)
+    const result = await waitForRequest(request, null)
+    db.close()
+    return result?.value || null
   } catch {
-    // Non-critical
+    return null
   }
+}
+
+function waitForTransaction(tx) {
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = resolve
+    tx.onerror = () => reject(tx.error)
+    tx.onabort = () => reject(tx.error)
+  })
+}
+
+function waitForRequest(request, fallback) {
+  return new Promise((resolve) => {
+    request.onsuccess = () => resolve(request.result)
+    request.onerror = () => resolve(fallback)
+  })
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
+  const rawData = self.atob(base64)
+  const outputArray = new Uint8Array(rawData.length)
+  for (let i = 0; i < rawData.length; i += 1) {
+    outputArray[i] = rawData.charCodeAt(i)
+  }
+  return outputArray
 }

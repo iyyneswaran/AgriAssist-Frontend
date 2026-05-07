@@ -17,11 +17,39 @@ const APP_SHELL_URLS = [
 function manualPwaPlugin(): Plugin {
   let rootDir = ''
 
+  const buildServiceWorkerSource = (precacheUrls: string[], isDev: boolean) => {
+    const cacheVersion = isDev
+      ? 'dev'
+      : createHash('sha256')
+        .update(precacheUrls.join('|'))
+        .digest('hex')
+        .slice(0, 12)
+
+    const template = readFileSync(resolve(rootDir, 'src/pwa/sw-template.js'), 'utf8')
+    return template
+      .replace('__CACHE_VERSION__', JSON.stringify(cacheVersion))
+      .replace('__IS_DEV__', JSON.stringify(isDev))
+      .replace('__PRECACHE_URLS__', JSON.stringify(precacheUrls, null, 2))
+  }
+
   return {
     name: 'manual-pwa',
-    apply: 'build',
     configResolved(config) {
       rootDir = config.root
+    },
+    configureServer(server) {
+      server.middlewares.use((request, response, next) => {
+        const requestUrl = request.url?.split('?')[0]
+        if (requestUrl !== '/sw.js') {
+          next()
+          return
+        }
+
+        response.statusCode = 200
+        response.setHeader('Content-Type', 'application/javascript; charset=utf-8')
+        response.setHeader('Cache-Control', 'no-store')
+        response.end(buildServiceWorkerSource(APP_SHELL_URLS, true))
+      })
     },
     generateBundle(_, bundle) {
       const assetUrls = Object.values(bundle)
@@ -29,15 +57,7 @@ function manualPwaPlugin(): Plugin {
         .filter((url) => url !== '/sw.js')
 
       const precacheUrls = Array.from(new Set([...APP_SHELL_URLS, ...assetUrls]))
-      const cacheVersion = createHash('sha256')
-        .update(precacheUrls.join('|'))
-        .digest('hex')
-        .slice(0, 12)
-
-      const template = readFileSync(resolve(rootDir, 'src/pwa/sw-template.js'), 'utf8')
-      const source = template
-        .replace('__CACHE_VERSION__', cacheVersion)
-        .replace('__PRECACHE_URLS__', JSON.stringify(precacheUrls, null, 2))
+      const source = buildServiceWorkerSource(precacheUrls, false)
 
       this.emitFile({
         type: 'asset',
