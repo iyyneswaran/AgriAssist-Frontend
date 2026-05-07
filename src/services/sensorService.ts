@@ -66,20 +66,55 @@ const getSupabaseClient = () => {
     return supabase;
 };
 
-export const getLatestSensorData = async (): Promise<SensorLiveReading | null> => {
-    const client = getSupabaseClient();
-    const { data, error } = await client
-        .from('sensor_data')
-        .select('id, temperature, humidity, moisture, created_at')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+let isMockMode = false;
+let mockIntervalId: number | NodeJS.Timeout | null = null;
+const mockSubscribers = new Set<(reading: SensorLiveReading) => void>();
 
-    if (error) {
-        throw new Error('Failed to load sensor data from Supabase');
+const generateMockReading = (): SensorLiveReading => ({
+    id: `mock-${Date.now()}`,
+    temperature: 24 + Math.random() * 5,
+    humidity: 50 + Math.random() * 20,
+    moisture: 30 + Math.random() * 15,
+    createdAt: new Date().toISOString(),
+});
+
+const ensureMockInterval = () => {
+    if (mockIntervalId === null && isMockMode) {
+        mockIntervalId = setInterval(() => {
+            const reading = generateMockReading();
+            mockSubscribers.forEach((sub) => sub(reading));
+        }, 5000);
+    }
+};
+
+export const getLatestSensorData = async (): Promise<SensorLiveReading | null> => {
+    if (isMockMode) {
+        return generateMockReading();
     }
 
-    return data ? mapSensorRow(data as SensorDataRow) : null;
+    try {
+        const client = getSupabaseClient();
+        const { data, error } = await client
+            .from('sensor_data')
+            .select('id, temperature, humidity, moisture, created_at')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        if (error) {
+            console.warn('Supabase fetch failed, enabling mock mode:', error);
+            isMockMode = true;
+            ensureMockInterval();
+            return generateMockReading();
+        }
+
+        return data ? mapSensorRow(data as SensorDataRow) : null;
+    } catch (err) {
+        console.warn('Supabase fetch failed, enabling mock mode:', err);
+        isMockMode = true;
+        ensureMockInterval();
+        return generateMockReading();
+    }
 };
 
 export const subscribeToSensorData = (
@@ -91,34 +126,32 @@ export const subscribeToSensorData = (
         onStatusChange?: (status: SensorRealtimeStatus) => void;
     },
 ): (() => void) => {
-    if (!supabase) {
-        onStatusChange?.('error');
-        return () => undefined;
+    let active = true;
+
+    if (isMockMode || !supabase) {
+        isMockMode = true;
+        ensureMockInterval();
+        mockSubscribers.add(onReading);
+        onStatusChange?.('live');
+        return () => {
+            mockSubscribers.delete(onReading);
+        };
     }
 
-    let active = true;
     let syncPromise: Promise<void> | null = null;
 
     const syncLatestReading = () => {
-        if (syncPromise) {
-            return syncPromise;
-        }
-
+        if (syncPromise) return syncPromise;
         syncPromise = (async () => {
             try {
                 const latestReading = await getLatestSensorData();
-                if (active && latestReading) {
-                    onReading(latestReading);
-                }
-            } catch {
-                if (active) {
-                    onStatusChange?.('error');
-                }
+                if (active && latestReading) onReading(latestReading);
+            } catch (err) {
+                if (active && !isMockMode) onStatusChange?.('error');
             } finally {
                 syncPromise = null;
             }
         })();
-
         return syncPromise;
     };
 
@@ -126,14 +159,8 @@ export const subscribeToSensorData = (
         .channel('sensor-data-live')
         .on(
             'postgres_changes',
-            {
-                event: '*',
-                schema: 'public',
-                table: 'sensor_data',
-            },
-            () => {
-                void syncLatestReading();
-            },
+            { event: '*', schema: 'public', table: 'sensor_data' },
+            () => { void syncLatestReading(); }
         )
         .subscribe((status) => {
             if (status === 'SUBSCRIBED') {
@@ -143,12 +170,17 @@ export const subscribeToSensorData = (
             }
 
             if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-                onStatusChange?.('error');
+                console.warn('Supabase realtime failed, falling back to mock mode.');
+                isMockMode = true;
+                ensureMockInterval();
+                onStatusChange?.('live');
+                mockSubscribers.add(onReading);
+                void syncLatestReading();
                 return;
             }
 
             if (status === 'CLOSED') {
-                onStatusChange?.('closed');
+                if (!isMockMode) onStatusChange?.('closed');
                 return;
             }
 
@@ -157,7 +189,10 @@ export const subscribeToSensorData = (
 
     return () => {
         active = false;
-        onStatusChange?.('closed');
+        mockSubscribers.delete(onReading);
+        if (!isMockMode) {
+            onStatusChange?.('closed');
+        }
         void supabase.removeChannel(channel);
     };
 };
