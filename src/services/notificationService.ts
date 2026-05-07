@@ -198,13 +198,23 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
 }
 
 export async function getVAPIDPublicKey(): Promise<string> {
-  const response = await apiFetch(`${CHAT_API_URL}/api/notifications/push/vapid-key`);
-  if (!response.ok) {
-    throw new Error('Failed to get VAPID public key');
+  let publicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+  
+  if (!publicKey) {
+    const response = await apiFetch(`${CHAT_API_URL}/api/notifications/push/vapid-key`);
+    if (!response.ok) {
+      throw new Error('Failed to get VAPID public key');
+    }
+    const data = await response.json() as { public_key: string };
+    publicKey = data.public_key;
   }
-  const data = await response.json() as { public_key: string };
-  sendVapidKeyToServiceWorker(data.public_key);
-  return data.public_key;
+  
+  if (!publicKey) {
+    throw new Error('VAPID public key is completely missing');
+  }
+  
+  sendVapidKeyToServiceWorker(publicKey);
+  return publicKey;
 }
 
 export async function registerBrowserPushSubscription(): Promise<PushSubscriptionResponse> {

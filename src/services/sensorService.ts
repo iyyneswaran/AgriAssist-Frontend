@@ -1,17 +1,18 @@
-import { createClient } from '@supabase/supabase-js';
+import { io, Socket } from 'socket.io-client';
 
 const CHAT_API_URL = import.meta.env.VITE_CHAT_API_URL || 'http://localhost:8001';
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const IOT_SERVER_URL = import.meta.env.VITE_IOT_SERVER_URL || 'http://localhost:3000';
 
-const supabase = SUPABASE_URL && SUPABASE_ANON_KEY
-    ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-        auth: {
-            persistSession: false,
-            autoRefreshToken: false,
-        },
-    })
-    : null;
+let socket: Socket | null = null;
+
+const getSocket = () => {
+    if (!socket) {
+        socket = io(IOT_SERVER_URL, {
+            reconnectionDelayMax: 10000,
+        });
+    }
+    return socket;
+};
 
 interface SensorDataRow {
     id: string;
@@ -50,70 +51,25 @@ export interface SensorAnalysisResponse {
     has_sensor_data: boolean;
 }
 
-const mapSensorRow = (row: SensorDataRow): SensorLiveReading => ({
-    id: row.id,
-    temperature: Number(row.temperature),
-    humidity: Number(row.humidity),
-    moisture: Number(row.moisture),
-    createdAt: row.created_at,
-});
-
-const getSupabaseClient = () => {
-    if (!supabase) {
-        throw new Error('Supabase sensor feed is not configured');
-    }
-
-    return supabase;
-};
-
-let isMockMode = false;
-let mockIntervalId: number | NodeJS.Timeout | null = null;
-const mockSubscribers = new Set<(reading: SensorLiveReading) => void>();
-
-const generateMockReading = (): SensorLiveReading => ({
-    id: `mock-${Date.now()}`,
-    temperature: 24 + Math.random() * 5,
-    humidity: 50 + Math.random() * 20,
-    moisture: 30 + Math.random() * 15,
+const mapSocketData = (data: any): SensorLiveReading => ({
+    id: `live-${Date.now()}`,
+    temperature: Number(data.temperature),
+    humidity: Number(data.humidity),
+    moisture: Number(data.moisture),
     createdAt: new Date().toISOString(),
 });
 
-const ensureMockInterval = () => {
-    if (mockIntervalId === null && isMockMode) {
-        mockIntervalId = setInterval(() => {
-            const reading = generateMockReading();
-            mockSubscribers.forEach((sub) => sub(reading));
-        }, 5000);
-    }
-};
-
 export const getLatestSensorData = async (): Promise<SensorLiveReading | null> => {
-    if (isMockMode) {
-        return generateMockReading();
-    }
-
     try {
-        const client = getSupabaseClient();
-        const { data, error } = await client
-            .from('sensor_data')
-            .select('id, temperature, humidity, moisture, created_at')
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-
-        if (error) {
-            console.warn('Supabase fetch failed, enabling mock mode:', error);
-            isMockMode = true;
-            ensureMockInterval();
-            return generateMockReading();
+        const response = await fetch(`${IOT_SERVER_URL}/api/sensors`);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch from IoT server: ${response.status}`);
         }
-
-        return data ? mapSensorRow(data as SensorDataRow) : null;
+        const data = await response.json();
+        return mapSocketData(data);
     } catch (err) {
-        console.warn('Supabase fetch failed, enabling mock mode:', err);
-        isMockMode = true;
-        ensureMockInterval();
-        return generateMockReading();
+        console.warn('Failed to fetch initial sensor data from IoT server:', err);
+        return null;
     }
 };
 
@@ -126,74 +82,32 @@ export const subscribeToSensorData = (
         onStatusChange?: (status: SensorRealtimeStatus) => void;
     },
 ): (() => void) => {
-    let active = true;
+    const s = getSocket();
 
-    if (isMockMode || !supabase) {
-        isMockMode = true;
-        ensureMockInterval();
-        mockSubscribers.add(onReading);
-        onStatusChange?.('live');
-        return () => {
-            mockSubscribers.delete(onReading);
-        };
-    }
-
-    let syncPromise: Promise<void> | null = null;
-
-    const syncLatestReading = () => {
-        if (syncPromise) return syncPromise;
-        syncPromise = (async () => {
-            try {
-                const latestReading = await getLatestSensorData();
-                if (active && latestReading) onReading(latestReading);
-            } catch (err) {
-                if (active && !isMockMode) onStatusChange?.('error');
-            } finally {
-                syncPromise = null;
-            }
-        })();
-        return syncPromise;
+    const connectHandler = () => onStatusChange?.('live');
+    const disconnectHandler = () => onStatusChange?.('closed');
+    const connectErrorHandler = () => onStatusChange?.('error');
+    
+    const dataHandler = (data: any) => {
+        onReading(mapSocketData(data));
     };
 
-    const channel = supabase
-        .channel('sensor-data-live')
-        .on(
-            'postgres_changes',
-            { event: '*', schema: 'public', table: 'sensor_data' },
-            () => { void syncLatestReading(); }
-        )
-        .subscribe((status) => {
-            if (status === 'SUBSCRIBED') {
-                onStatusChange?.('live');
-                void syncLatestReading();
-                return;
-            }
+    s.on('connect', connectHandler);
+    s.on('disconnect', disconnectHandler);
+    s.on('connect_error', connectErrorHandler);
+    s.on('sensor-data', dataHandler);
 
-            if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-                console.warn('Supabase realtime failed, falling back to mock mode.');
-                isMockMode = true;
-                ensureMockInterval();
-                onStatusChange?.('live');
-                mockSubscribers.add(onReading);
-                void syncLatestReading();
-                return;
-            }
-
-            if (status === 'CLOSED') {
-                if (!isMockMode) onStatusChange?.('closed');
-                return;
-            }
-
-            onStatusChange?.('connecting');
-        });
+    if (s.connected) {
+        onStatusChange?.('live');
+    } else {
+        onStatusChange?.('connecting');
+    }
 
     return () => {
-        active = false;
-        mockSubscribers.delete(onReading);
-        if (!isMockMode) {
-            onStatusChange?.('closed');
-        }
-        void supabase.removeChannel(channel);
+        s.off('connect', connectHandler);
+        s.off('disconnect', disconnectHandler);
+        s.off('connect_error', connectErrorHandler);
+        s.off('sensor-data', dataHandler);
     };
 };
 
