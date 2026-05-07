@@ -48,8 +48,59 @@ function manualPwaPlugin(): Plugin {
   }
 }
 
+function manualChunks(id: string): string | undefined {
+  if (!id.includes('node_modules')) {
+    return undefined
+  }
+
+  if (id.includes('react-dom') || id.includes('react-router-dom') || /node_modules[/\\]react[/\\]/.test(id)) {
+    return 'vendor-react'
+  }
+
+  if (id.includes('gsap') || id.includes('@gsap')) {
+    return 'vendor-animation'
+  }
+
+  if (
+    id.includes('react-markdown') ||
+    id.includes('remark-') ||
+    id.includes('rehype-') ||
+    id.includes('micromark') ||
+    id.includes('unified') ||
+    id.includes('unist-') ||
+    id.includes('mdast-') ||
+    id.includes('hast-') ||
+    id.includes('vfile') ||
+    id.includes('property-information') ||
+    id.includes('decode-named-character-reference')
+  ) {
+    return 'vendor-markdown'
+  }
+
+  if (id.includes('@supabase')) {
+    return 'vendor-supabase'
+  }
+
+  if (id.includes('i18next') || id.includes('react-i18next')) {
+    return 'vendor-i18n'
+  }
+
+  if (id.includes('lucide-react') || id.includes('lucide-static')) {
+    return 'vendor-icons'
+  }
+
+  return undefined
+}
+
 // https://vite.dev/config/
 export default defineConfig({
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks,
+      },
+    },
+  },
   plugins: [
     react(),
     manualPwaPlugin(),
