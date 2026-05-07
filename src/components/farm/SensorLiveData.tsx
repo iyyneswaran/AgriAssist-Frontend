@@ -91,8 +91,7 @@ export default function SensorLiveData() {
             if (data) {
                 applyIncomingReading(data);
                 if (isBackground) setError(null); // Recovery from error
-            } else {
-                latestReadingRef.current = null;
+            } else if (!latestReadingRef.current) {
                 setSensor(null);
                 setLastUpdated(null);
             }
@@ -108,12 +107,6 @@ export default function SensorLiveData() {
     useEffect(() => {
         let active = true;
         void fetchData();
-
-        const intervalId = setInterval(() => {
-            if (active) {
-                void fetchData(false, true); // background fetch
-            }
-        }, 5000);
 
         const unsubscribe = subscribeToSensorData({
             onReading: (nextReading) => {
@@ -134,7 +127,6 @@ export default function SensorLiveData() {
 
         return () => {
             active = false;
-            clearInterval(intervalId);
             unsubscribe();
         };
     }, [applyIncomingReading, fetchData]);
@@ -209,8 +201,8 @@ export default function SensorLiveData() {
                     <div className="w-12 h-12 rounded-full bg-cyan-500/10 flex items-center justify-center mx-auto mb-3">
                         <Wifi size={24} className="text-cyan-400" />
                     </div>
-                    <p className="text-gray-300 text-sm">Waiting for the first sensor reading</p>
-                    <p className="text-gray-500 text-[11px] mt-1">The websocket is listening and the latest row from Supabase will appear here automatically.</p>
+                    <p className="text-gray-300 text-sm">Waiting for sensor data...</p>
+                    <p className="text-gray-500 text-[11px] mt-1">The websocket is listening for real-time hardware data.</p>
                 </div>
             </div>
         );
@@ -278,7 +270,7 @@ export default function SensorLiveData() {
 
             {lastUpdated && (
                 <p className="text-gray-500 text-[10px] text-center mt-3 relative z-10">
-                    Latest websocket sync: {formatTimestamp(lastUpdated)} | Supabase Realtime
+                    Latest websocket sync: {formatTimestamp(lastUpdated)} | Hardware Stream
                 </p>
             )}
         </div>
