@@ -14,14 +14,6 @@ const getSocket = () => {
     return socket;
 };
 
-interface SensorDataRow {
-    id: string;
-    temperature: number;
-    humidity: number;
-    moisture: number;
-    created_at: string;
-}
-
 export interface SensorLiveReading {
     id: string;
     temperature: number;
