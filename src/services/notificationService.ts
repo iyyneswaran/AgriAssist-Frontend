@@ -92,7 +92,7 @@ export async function getVAPIDPublicKey(): Promise<string> {
  * Convert a VAPID public key string to a Uint8Array for use with
  * PushManager.subscribe().
  */
-function urlBase64ToUint8Array(base64String: string): Uint8Array {
+function urlBase64ToArrayBuffer(base64String: string): ArrayBuffer {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
   const rawData = window.atob(base64);
@@ -100,7 +100,7 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   for (let i = 0; i < rawData.length; ++i) {
     outputArray[i] = rawData.charCodeAt(i);
   }
-  return outputArray;
+  return outputArray.buffer;
 }
 
 /**
@@ -132,7 +132,7 @@ export async function subscribeToPush(): Promise<boolean> {
 
     // Get VAPID key from server
     const vapidKey = await getVAPIDPublicKey();
-    const applicationServerKey = urlBase64ToUint8Array(vapidKey);
+    const applicationServerKey = urlBase64ToArrayBuffer(vapidKey);
 
     // Request permission and create subscription
     const subscription = await registration.pushManager.subscribe({
