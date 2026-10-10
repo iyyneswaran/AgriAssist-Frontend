@@ -5,7 +5,7 @@ import ChatSidebar from '../components/ChatSidebar';
 import VoiceChatOverlay from '../components/VoiceChatOverlay';
 import { useAuth } from '../context/AuthContext';
 import { useAppData } from '../context/AppDataContext';
-import { startConversation, getConversationMessages, deleteConversation, getMyConversations, addMessage } from '../services/chatService';
+import { startConversation, getConversationMessages, deleteConversation, getMyConversations, addAgentMessage } from '../services/chatService';
 import type { ChatMessage } from '../services/chatService';
 import { useTranslation } from 'react-i18next';
 import ReactMarkdown from 'react-markdown';
@@ -181,7 +181,7 @@ export default function Chat() {
             }
 
             // Send the message over HTTP
-            const response = await addMessage(token, targetConvId as string, {
+            const response = await addAgentMessage(token, targetConvId as string, {
                 sender: 'USER',
                 messageType: 'TEXT',
                 textContent: currentText,

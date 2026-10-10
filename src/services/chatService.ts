@@ -57,6 +57,24 @@ export const addMessage = async (token: string, conversationId: string, messageD
     return response.json();
 };
 
+export const addAgentMessage = async (token: string, conversationId: string, messageData: any) => {
+    const response = await apiFetch(`${API_BASE_URL}/chat/conversations/${conversationId}/agent-messages`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(messageData)
+    });
+
+    if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.message || 'Failed to add agent message');
+    }
+
+    return response.json();
+};
+
 export const deleteConversation = async (token: string, conversationId: string) => {
     const response = await apiFetch(`${API_BASE_URL}/chat/conversations/${conversationId}`, {
         method: 'DELETE',
