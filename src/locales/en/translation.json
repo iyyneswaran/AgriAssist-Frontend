@@ -22,13 +22,53 @@
         "wind": "Wind",
         "c": "C",
         "kmh": "km/h",
-        "mm": "mm"
+        "mm": "mm",
+        "currentHour": "Current Hour",
+        "viewForecast": "View Forecast",
+        "humidity": "Humidity",
+        "dataSource": "Open-Meteo",
+        "updatedAt": "Updated"
     },
     "advisory": {
         "todaysFarmAdvisory": "Today's Farm Advisory",
         "noIrrigation": "No irrigation needed today.",
         "monitorPaddy": "Monitor paddy for leaf folder.",
         "applyFertilizer": "Apply fertilizer in 2 days."
+    },
+    "advisoryV2": {
+        "title": "Today's Farm Advisory",
+        "loading": "Analyzing farm conditions...",
+        "noData": "No advisory data available",
+        "noDataDesc": "Register your farm and crops in your profile to receive personalized advisories.",
+        "staleData": "Advisory may be outdated. Pull to refresh.",
+        "viewForecast": "View Full Forecast",
+        "checkIrrigation": "Check irrigation needs",
+        "checkIrrigationDesc": "Review soil moisture before watering.",
+        "checkIrrigationWhy": "Avoid excess watering and conserve water resources.",
+        "monitorPests": "Inspect crop leaves",
+        "monitorPestsDesc": "Look for visible signs of pest or disease damage.",
+        "monitorPestsWhy": "Early detection helps prevent crop loss.",
+        "delaySpray": "Delay chemical spraying",
+        "delaySprayDesc": "High moisture detected in your area.",
+        "delaySprayWhy": "Rain may wash away chemicals, wasting resources.",
+        "goodConditions": "Good farming conditions",
+        "goodConditionsDesc": "Weather is favorable for field activities today.",
+        "heatWarning": "Protect crops from heat",
+        "heatWarningDesc": "High temperatures detected in your region.",
+        "heatWarningWhy": "Irrigate early morning or late evening to reduce heat stress.",
+        "fertilizerReminder": "Plan fertilizer application",
+        "fertilizerReminderDesc": "Consider nutrient needs based on crop growth stage.",
+        "fertilizerReminderWhy": "Timely fertilization optimizes yield and reduces waste.",
+        "basedOn": "Based on",
+        "weatherData": "weather data",
+        "cropStage": "crop stage",
+        "priority": "Priority",
+        "high": "High",
+        "medium": "Medium",
+        "low": "Low",
+        "lastUpdated": "Updated",
+        "minutesAgo": "{{count}} min ago",
+        "justNow": "Just now"
     },
     "crops": {
         "yourCrops": "Your Crops",
@@ -37,12 +77,19 @@
         "vegetativeStage": "Vegetative Stage",
         "floweringStage": "Flowering Stage",
         "fruitingStage": "Fruiting Stage",
-        "readyToHarvest": "Ready to Harvest"
+        "readyToHarvest": "Ready to Harvest",
+        "viewAll": "View All",
+        "addCrops": "Add Crops",
+        "daysOld": "{{count}} days"
     },
     "actions": {
         "scanCrop": "Scan Crop",
         "aiAssistant": "AI Assistant",
-        "schemes": "Schemes"
+        "schemes": "Schemes",
+        "aiAssistance": "AI Assistance",
+        "askFarmingQuestions": "Ask farming questions",
+        "detectDiseases": "Detect crop diseases",
+        "exploreSchemes": "Explore government schemes"
     },
     "nav": {
         "home": "Home",
@@ -61,11 +108,15 @@
         "satelliteAnalysis": "Satellite Analysis",
         "ndvi": "NDVI",
         "dayForecast": "Day Forecast",
+        "day": "Day",
+        "dailyBreakdown": "Daily Rainfall Breakdown",
         "maxMin": "Max / Min",
         "disasterRisk": "Disaster Risk Assessment",
-        "floodRisk": "Flood Risk",
+        "waterloggingRisk": "Waterlogging Risk",
+        "peakRainfall": "Peak 24h Rainfall",
         "droughtRisk": "Drought Risk",
         "heatStress": "Heat Stress",
+        "riverFloodDisclaimer": "River flood risk is not assessed. For flood warnings, consult CWC/IMD official bulletins.",
         "poweredBy": "Powered by Google Earth Engine · Sentinel-2 · NOAA/GFS"
     },
     "profile": {
@@ -156,8 +207,19 @@
     },
     "risk": {
         "high": "High",
+        "veryHigh": "Very High",
         "moderate": "Moderate",
-        "low": "Low"
+        "low": "Low",
+        "unknown": "Unknown"
+    },
+    "rainfall": {
+        "extremelyHeavy": "Extremely Heavy",
+        "veryHeavy": "Very Heavy",
+        "heavy": "Heavy",
+        "moderate": "Moderate",
+        "light": "Light",
+        "noRain": "No Rain",
+        "unknown": "—"
     },
     "farm": {
         "farmDetails": "Farm Details",
@@ -273,12 +335,13 @@
         "noRisks": "No immediate weather risks detected.",
         "droughtHigh": "⚠️ High drought risk detected! Low rainfall and vegetation stress observed.",
         "droughtMod": "Moderate drought risk — monitor soil moisture and plan irrigation.",
-        "floodHigh": "🌊 High flood risk! Heavy rainfall expected. Secure crops and drainage.",
-        "floodMod": "Moderate flood risk — prepare drainage and avoid low-lying areas.",
+        "waterlogVeryHigh": "🌊 Very high waterlogging risk! Heavy rainfall expected over multiple days. Prepare drainage immediately.",
+        "waterlogHigh": "🌊 High waterlogging risk — significant rainfall expected. Check drainage channels and protect seedlings.",
+        "waterlogMod": "Moderate waterlogging risk — rainfall may accumulate. Monitor drainage.",
+        "waterlogRec": "Clear drainage channels. Protect seedlings. Avoid fertilizer application before heavy rain. Ensure field outlets are unblocked.",
         "heatHigh": "🔥 Severe heat stress alert! Extreme temperatures may damage crops.",
         "heatMod": "Moderate heat stress — ensure adequate irrigation and shade.",
         "droughtRec": "Increase irrigation frequency. Apply mulch to retain soil moisture. Consider drought-resistant crop varieties.",
-        "floodRec": "Clear drainage channels. Protect seedlings. Avoid fertilizer application before heavy rain.",
         "heatRec": "Irrigate during early morning or late evening. Use shade nets. Apply foliar sprays to reduce heat stress.",
         "recommendation": "Recommendation"
     },

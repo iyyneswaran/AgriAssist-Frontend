@@ -13,20 +13,91 @@ import {
     ChevronDown,
     ChevronUp,
     Lightbulb,
+    Info,
 } from 'lucide-react';
 import BottomNav from '../components/BottomNav';
 import { useAppData } from '../context/AppDataContext';
 import { useTranslation } from 'react-i18next';
 
-// ─── Risk calculator helpers ────────────────────────────────────────────
-function calcFloodRisk(rainfallMm: number): number {
-    if (rainfallMm >= 80) return 95;
-    if (rainfallMm >= 50) return 75;
-    if (rainfallMm >= 20) return 45;
-    if (rainfallMm >= 5) return 20;
-    return 5;
+// ─── Risk display helpers (categorical, no fake percentages) ────────────
+
+/** Map backend waterlogging_risk / severity to a color scheme */
+function riskCategoryColor(category: string): string {
+    switch (category) {
+        case 'very_high':
+        case 'extremely_heavy':
+            return 'from-red-500 to-red-600';
+        case 'high':
+        case 'very_heavy':
+            return 'from-orange-500 to-red-500';
+        case 'moderate':
+        case 'heavy':
+            return 'from-amber-400 to-orange-500';
+        default:
+            return 'from-green-400 to-emerald-500';
+    }
 }
 
+function riskCategoryWidth(category: string): string {
+    switch (category) {
+        case 'very_high':
+        case 'extremely_heavy':
+            return '95%';
+        case 'high':
+        case 'very_heavy':
+            return '75%';
+        case 'moderate':
+        case 'heavy':
+            return '45%';
+        case 'low':
+        case 'light':
+        case 'no_rain':
+            return '15%';
+        default:
+            return '10%';
+    }
+}
+
+function riskCategoryTextColor(category: string): string {
+    switch (category) {
+        case 'very_high':
+        case 'extremely_heavy':
+            return 'text-red-400';
+        case 'high':
+        case 'very_heavy':
+            return 'text-orange-400';
+        case 'moderate':
+        case 'heavy':
+            return 'text-amber-400';
+        default:
+            return 'text-green-400';
+    }
+}
+
+/** Map severity to i18n key */
+function severityLabelKey(severity: string): string {
+    switch (severity) {
+        case 'extremely_heavy': return 'rainfall.extremelyHeavy';
+        case 'very_heavy': return 'rainfall.veryHeavy';
+        case 'heavy': return 'rainfall.heavy';
+        case 'moderate': return 'rainfall.moderate';
+        case 'light': return 'rainfall.light';
+        case 'no_rain': return 'rainfall.noRain';
+        default: return 'rainfall.unknown';
+    }
+}
+
+function waterloggingLabelKey(risk: string): string {
+    switch (risk) {
+        case 'very_high': return 'risk.veryHigh';
+        case 'high': return 'risk.high';
+        case 'moderate': return 'risk.moderate';
+        case 'low': return 'risk.low';
+        default: return 'risk.unknown';
+    }
+}
+
+// Drought risk is still client-side (no backend model for it)
 function calcDroughtRisk(rainfallMm: number, ndvi: number | null): number {
     let risk = 0;
     if (rainfallMm < 2) risk += 50;
@@ -231,13 +302,20 @@ export default function Forecast() {
     }
 
     // ─── Computed risks ─────────────────────────────────────────────────
-    const floodRisk = calcFloodRisk(data.rainfall_forecast.forecast_rainfall_mm);
+    // Waterlogging risk comes from backend (single source of truth)
+    const waterloggingRisk = data.rainfall_forecast.waterlogging_risk || 'unknown';
+    const peakSeverity = data.rainfall_forecast.peak_24h_severity || 'unknown';
+
+    // Drought and heat risk remain client-computed (no backend model yet)
     const droughtRisk = calcDroughtRisk(data.rainfall_forecast.forecast_rainfall_mm, data.ndvi.ndvi_mean);
     const heatRisk = calcHeatRisk(data.temperature_forecast.max_temp_celsius);
 
     const ndviValue = data.ndvi.ndvi_mean;
     const circumference = 2 * Math.PI * 36;
     const ndviStroke = ndviValue !== null ? circumference - (ndviValue * circumference) : circumference;
+
+    // Daily breakdown (from backend, if available)
+    const dailyBreakdown = data.rainfall_forecast.daily_breakdown || [];
 
     return (
         <div className="relative min-h-screen w-full overflow-hidden flex justify-center bg-black">
@@ -277,13 +355,15 @@ export default function Forecast() {
                 {/* ─── Dynamic Risk Alert Banners ─────────────────────── */}
                 <div className="mt-5 px-4 space-y-3">
                     {(() => {
-                        const alerts: { key: string; msgKey: string; recKey: string; border: string; icon: string; bg: string; iconColor: string }[] = [];
+                        const alerts: AlertItem[] = [];
 
                         if (droughtRisk >= 70) alerts.push({ key: 'drought', msgKey: 'forecastAlerts.droughtHigh', recKey: 'forecastAlerts.droughtRec', border: 'border-l-red-500', icon: '🏜️', bg: 'bg-red-500/10', iconColor: 'text-red-400' });
                         else if (droughtRisk >= 40) alerts.push({ key: 'drought', msgKey: 'forecastAlerts.droughtMod', recKey: 'forecastAlerts.droughtRec', border: 'border-l-amber-400', icon: '🏜️', bg: 'bg-amber-500/10', iconColor: 'text-amber-400' });
 
-                        if (floodRisk >= 70) alerts.push({ key: 'flood', msgKey: 'forecastAlerts.floodHigh', recKey: 'forecastAlerts.floodRec', border: 'border-l-blue-500', icon: '🌊', bg: 'bg-blue-500/10', iconColor: 'text-blue-400' });
-                        else if (floodRisk >= 40) alerts.push({ key: 'flood', msgKey: 'forecastAlerts.floodMod', recKey: 'forecastAlerts.floodRec', border: 'border-l-blue-400', icon: '🌊', bg: 'bg-blue-500/10', iconColor: 'text-blue-400' });
+                        // Waterlogging alerts from backend classification
+                        if (waterloggingRisk === 'very_high') alerts.push({ key: 'waterlog', msgKey: 'forecastAlerts.waterlogVeryHigh', recKey: 'forecastAlerts.waterlogRec', border: 'border-l-red-500', icon: '🌊', bg: 'bg-red-500/10', iconColor: 'text-red-400' });
+                        else if (waterloggingRisk === 'high') alerts.push({ key: 'waterlog', msgKey: 'forecastAlerts.waterlogHigh', recKey: 'forecastAlerts.waterlogRec', border: 'border-l-blue-500', icon: '🌊', bg: 'bg-blue-500/10', iconColor: 'text-blue-400' });
+                        else if (waterloggingRisk === 'moderate') alerts.push({ key: 'waterlog', msgKey: 'forecastAlerts.waterlogMod', recKey: 'forecastAlerts.waterlogRec', border: 'border-l-blue-400', icon: '🌊', bg: 'bg-blue-500/10', iconColor: 'text-blue-400' });
 
                         if (heatRisk >= 70) alerts.push({ key: 'heat', msgKey: 'forecastAlerts.heatHigh', recKey: 'forecastAlerts.heatRec', border: 'border-l-orange-500', icon: '🔥', bg: 'bg-orange-500/10', iconColor: 'text-orange-400' });
                         else if (heatRisk >= 40) alerts.push({ key: 'heat', msgKey: 'forecastAlerts.heatMod', recKey: 'forecastAlerts.heatRec', border: 'border-l-orange-400', icon: '🔥', bg: 'bg-orange-500/10', iconColor: 'text-orange-400' });
@@ -378,6 +458,34 @@ export default function Forecast() {
                     </div>
                 </div>
 
+                {/* ─── Daily Rainfall Breakdown ─────────────────────────── */}
+                {dailyBreakdown.length > 0 && (
+                    <div className="mt-6 px-4">
+                        <h2 className="text-gray-300 text-xs font-semibold uppercase tracking-widest mb-3 flex items-center gap-2">
+                            <span className="w-1 h-1 rounded-full bg-blue-400"></span>
+                            {t('forecast.dailyBreakdown')}
+                        </h2>
+                        <div className="glass-panel-dark rounded-2xl border border-white/10 p-4">
+                            <div className="grid grid-cols-4 gap-2">
+                                {dailyBreakdown.map((day) => (
+                                    <div key={day.day} className="flex flex-col items-center text-center">
+                                        <span className="text-[10px] text-gray-500 mb-1">
+                                            {t('forecast.day')} {day.day}
+                                        </span>
+                                        <span className="text-white text-sm font-semibold">
+                                            {day.rainfall_mm}
+                                        </span>
+                                        <span className="text-[9px] text-gray-400">mm</span>
+                                        <span className={`text-[9px] font-medium mt-1 ${riskCategoryTextColor(day.severity)}`}>
+                                            {t(severityLabelKey(day.severity))}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* ─── Risk Assessment ───────────────────────────────── */}
                 <div className="mt-6 px-4">
                     <h2 className="text-gray-300 text-xs font-semibold uppercase tracking-widest mb-3 flex items-center gap-2">
@@ -386,26 +494,48 @@ export default function Forecast() {
                     </h2>
 
                     <div className="glass-panel-dark rounded-2xl border border-white/10 p-4 space-y-5">
-                        {/* Flood Risk */}
+                        {/* Waterlogging Risk — from backend */}
                         <div>
                             <div className="flex items-center justify-between mb-2">
                                 <div className="flex items-center gap-2">
                                     <Droplets size={14} className="text-blue-400" />
-                                    <span className="text-sm text-gray-200">{t('forecast.floodRisk')}</span>
+                                    <span className="text-sm text-gray-200">{t('forecast.waterloggingRisk')}</span>
                                 </div>
-                                <span className={`text-xs font-semibold ${riskTextColor(floodRisk)}`}>
-                                    {t(riskLabelKey(floodRisk))} · {floodRisk}%
+                                <span className={`text-xs font-semibold ${riskCategoryTextColor(waterloggingRisk)}`}>
+                                    {t(waterloggingLabelKey(waterloggingRisk))}
                                 </span>
                             </div>
                             <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
                                 <div
-                                    className={`h-full rounded-full bg-gradient-to-r ${riskColor(floodRisk)} transition-all duration-1000`}
-                                    style={{ width: `${floodRisk}%` }}
+                                    className={`h-full rounded-full bg-gradient-to-r ${riskCategoryColor(waterloggingRisk)} transition-all duration-1000`}
+                                    style={{ width: riskCategoryWidth(waterloggingRisk) }}
                                 ></div>
                             </div>
                         </div>
 
-                        {/* Drought Risk */}
+                        {/* Peak 24h Severity — from backend */}
+                        <div>
+                            <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                    <CloudRain size={14} className="text-blue-400" />
+                                    <span className="text-sm text-gray-200">{t('forecast.peakRainfall')}</span>
+                                </div>
+                                <span className={`text-xs font-semibold ${riskCategoryTextColor(peakSeverity)}`}>
+                                    {t(severityLabelKey(peakSeverity))}
+                                    {data.rainfall_forecast.peak_24h_mm != null && (
+                                        <span className="text-gray-400 font-normal"> · {data.rainfall_forecast.peak_24h_mm} mm</span>
+                                    )}
+                                </span>
+                            </div>
+                            <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
+                                <div
+                                    className={`h-full rounded-full bg-gradient-to-r ${riskCategoryColor(peakSeverity)} transition-all duration-1000`}
+                                    style={{ width: riskCategoryWidth(peakSeverity) }}
+                                ></div>
+                            </div>
+                        </div>
+
+                        {/* Drought Risk — client-computed */}
                         <div>
                             <div className="flex items-center justify-between mb-2">
                                 <div className="flex items-center gap-2">
@@ -413,7 +543,7 @@ export default function Forecast() {
                                     <span className="text-sm text-gray-200">{t('forecast.droughtRisk')}</span>
                                 </div>
                                 <span className={`text-xs font-semibold ${riskTextColor(droughtRisk)}`}>
-                                    {t(riskLabelKey(droughtRisk))} · {droughtRisk}%
+                                    {t(riskLabelKey(droughtRisk))}
                                 </span>
                             </div>
                             <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
@@ -424,7 +554,7 @@ export default function Forecast() {
                             </div>
                         </div>
 
-                        {/* Heat Stress */}
+                        {/* Heat Stress — client-computed */}
                         <div>
                             <div className="flex items-center justify-between mb-2">
                                 <div className="flex items-center gap-2">
@@ -432,7 +562,7 @@ export default function Forecast() {
                                     <span className="text-sm text-gray-200">{t('forecast.heatStress')}</span>
                                 </div>
                                 <span className={`text-xs font-semibold ${riskTextColor(heatRisk)}`}>
-                                    {t(riskLabelKey(heatRisk))} · {heatRisk}%
+                                    {t(riskLabelKey(heatRisk))}
                                 </span>
                             </div>
                             <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
@@ -441,6 +571,14 @@ export default function Forecast() {
                                     style={{ width: `${heatRisk}%` }}
                                 ></div>
                             </div>
+                        </div>
+
+                        {/* River Flood — not assessed disclaimer */}
+                        <div className="flex items-start gap-2 pt-2 border-t border-white/5">
+                            <Info size={12} className="text-gray-500 mt-0.5 shrink-0" />
+                            <p className="text-[10px] text-gray-500 leading-relaxed">
+                                {t('forecast.riverFloodDisclaimer')}
+                            </p>
                         </div>
                     </div>
                 </div>

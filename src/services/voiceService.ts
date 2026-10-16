@@ -8,31 +8,85 @@ const CHAT_API_BASE = import.meta.env.VITE_CHAT_API_URL || 'http://localhost:800
 const VOICE_API_URL = `${CHAT_API_BASE}/api/voice`;
 const TEXT_CHAT_API_URL = `${CHAT_API_BASE}/api/chat`;
 
+export interface VoiceChatMessage {
+    role: 'user' | 'assistant' | 'system';
+    content: string;
+}
+
 /**
- * Send transcribed text to the backend LLM for a conversational reply.
- * This bypasses DB storage for quick Voice Overlay responses.
+ * Strips markdown symbols so TTS synthesizes clean, natural-sounding audio.
  */
-export const generateVoiceChatReply = async (text: string, language?: string, latitude?: number, longitude?: number): Promise<string> => {
-    const response = await fetch(`${TEXT_CHAT_API_URL}/generate`, {
+export const cleanMarkdownForSpeech = (text: string): string => {
+    return text
+        .replace(/\*\*([^*]+)\*\*/g, '$1') // bold
+        .replace(/\*([^*]+)\*/g, '$1')     // italics
+        .replace(/#{1,6}\s+/g, '')          // headings
+        .replace(/`([^`]+)`/g, '$1')       // inline code
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // links
+        .replace(/^\s*[-*+]\s+/gm, '')     // list bullets
+        .replace(/^\s*\d+\.\s+/gm, '')     // numbered items
+        .replace(/---+/g, '')              // horizontal rules
+        .trim();
+};
+
+/**
+ * Send full message history to the Seva AI Agent (/api/chat/agent)
+ * Enables multi-turn tool calling (schemes, market prices, checklists, grievances) for voice!
+ */
+export const generateVoiceAgentReply = async (
+    messages: VoiceChatMessage[],
+    language?: string
+): Promise<string> => {
+    const response = await fetch(`${TEXT_CHAT_API_URL}/agent`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({ 
-            message: text, 
-            language: language || 'ta',
-            latitude,
-            longitude 
+            messages, 
+            language: language || 'ta'
         }),
     });
 
     if (!response.ok) {
-        const err = await response.json().catch(() => ({ error: 'AI request failed' }));
-        throw new Error(err.error || `AI failed: ${response.status}`);
+        const err = await response.json().catch(() => ({ error: 'AI agent request failed' }));
+        throw new Error(err.detail || err.error || `AI failed: ${response.status}`);
     }
 
     const data = await response.json();
-    return data.response;
+    return data.content || data.response || "No response received";
+};
+
+/**
+ * Send transcribed text to the backend LLM for a conversational reply.
+ * Uses Seva AI Agent under the hood.
+ */
+export const generateVoiceChatReply = async (text: string, language?: string, latitude?: number, longitude?: number): Promise<string> => {
+    try {
+        return await generateVoiceAgentReply([{ role: 'user', content: text }], language);
+    } catch (e) {
+        // Fallback to legacy endpoint if agent fails
+        const response = await fetch(`${TEXT_CHAT_API_URL}/generate`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 
+                message: text, 
+                language: language || 'ta',
+                latitude,
+                longitude 
+            }),
+        });
+
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({ error: 'AI request failed' }));
+            throw new Error(err.error || `AI failed: ${response.status}`);
+        }
+
+        const data = await response.json();
+        return data.response;
+    }
 };
 
 /**

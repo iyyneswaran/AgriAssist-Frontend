@@ -8,6 +8,12 @@
   --color-muted: #6B7280;
   --font-sans: 'Inter', sans-serif;
   --font-serif: 'Georgia', serif;
+  --color-glass-bg: rgba(10, 18, 14, 0.58);
+  --color-glass-border: rgba(255, 255, 255, 0.10);
+  --color-glass-border-subtle: rgba(255, 255, 255, 0.06);
+  --color-accent-cyan: #22d3ee;
+  --color-accent-violet: #a78bfa;
+  --color-accent-amber: #fbbf24;
 }
 
 @layer base {
@@ -54,15 +60,108 @@ body {
 }
 
 .glass-panel-dark {
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(10, 18, 14, 0.58);
+  backdrop-filter: blur(20px) saturate(145%);
+  -webkit-backdrop-filter: blur(20px) saturate(145%);
+  border: 1px solid rgba(255, 255, 255, 0.10);
 }
 
 @keyframes shimmer {
   100% {
     transform: translateX(100%);
+  }
+}
+
+/* ── Liquid Glass Design System ── */
+
+/* Secondary glass - deeper/darker for metric cards */
+.glass-surface-deep {
+  background: rgba(6, 12, 9, 0.72);
+  backdrop-filter: blur(16px) saturate(130%);
+  -webkit-backdrop-filter: blur(16px) saturate(130%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Navigation dock glass - strongest treatment */
+.glass-nav-dock {
+  background: rgba(8, 14, 10, 0.82);
+  backdrop-filter: blur(32px) saturate(160%);
+  -webkit-backdrop-filter: blur(32px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    0 0 0 0.5px rgba(255, 255, 255, 0.06) inset,
+    0 1px 0 0 rgba(255, 255, 255, 0.05) inset;
+}
+
+/* Action card glass with subtle glow support */
+.glass-action-card {
+  background: rgba(10, 18, 14, 0.55);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.glass-action-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.glass-action-card:active {
+  transform: translateY(0px) scale(0.98);
+}
+
+/* Focus ring utility */
+.glass-focus-ring:focus-visible {
+  outline: 2px solid rgba(161, 229, 51, 0.5);
+  outline-offset: 2px;
+}
+
+/* Ambient glow utilities */
+.glow-green {
+  box-shadow: 0 0 20px rgba(161, 229, 51, 0.12), 0 0 40px rgba(161, 229, 51, 0.06);
+}
+
+.glow-cyan {
+  box-shadow: 0 0 20px rgba(34, 211, 238, 0.10), 0 0 40px rgba(34, 211, 238, 0.05);
+}
+
+.glow-violet {
+  box-shadow: 0 0 20px rgba(167, 139, 250, 0.10), 0 0 40px rgba(167, 139, 250, 0.05);
+}
+
+/* Glass skeleton loader */
+.glass-skeleton {
+  background: linear-gradient(110deg, rgba(255, 255, 255, 0.04) 8%, rgba(255, 255, 255, 0.08) 18%, rgba(255, 255, 255, 0.04) 33%);
+  background-size: 200% 100%;
+  animation: glass-shimmer 1.5s linear infinite;
+}
+
+@keyframes glass-shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .glass-action-card {
+    transition: none;
+  }
+  .glass-action-card:hover {
+    transform: none;
+  }
+  .glass-action-card:active {
+    transform: none;
+  }
+  .glass-skeleton {
+    animation: none;
+  }
+  .spark-border::before,
+  .spark-border::after {
+    animation: none;
   }
 }
 

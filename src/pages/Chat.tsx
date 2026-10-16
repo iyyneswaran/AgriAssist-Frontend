@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import BottomNav from '../components/BottomNav';
 import { Menu, Mic, Star, ArrowUp } from 'lucide-react';
 import ChatSidebar from '../components/ChatSidebar';
@@ -84,6 +85,7 @@ const markdownComponents: Components = {
 export default function Chat() {
     const { token } = useAuth();
     const { t, i18n } = useTranslation();
+    const location = useLocation();
 
     // Context data
     const { conversations: chats, setConversations: setChats } = useAppData();
@@ -101,6 +103,14 @@ export default function Chat() {
     const [isTyping, setIsTyping] = useState(false);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
+
+    // Read starter prompt passed from navigation
+    useEffect(() => {
+        const starter = (location.state as { starterPrompt?: string } | null)?.starterPrompt;
+        if (starter && typeof starter === 'string') {
+            setInputText(starter);
+        }
+    }, [location.state]);
 
     // Fetch messages when a conversation is selected
     useEffect(() => {
@@ -197,7 +207,7 @@ export default function Chat() {
                 response.userMessage,
                 response.aiMessage
             ]);
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error("Failed to send message over HTTP:", err);
             // Optionally add an error message to the UI here
             const errorMsg: ChatMessage = {

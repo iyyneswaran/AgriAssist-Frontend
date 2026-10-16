@@ -1,7 +1,15 @@
 import { useState, useRef, useEffect } from 'react';
 import { Mic, X, Menu, Bot, Square, Loader2, Volume2 } from 'lucide-react';
-import { transcribeAudio, synthesizeSpeech, playAudioBlob, generateVoiceChatReply } from '../services/voiceService';
+import { 
+    transcribeAudio, 
+    synthesizeSpeech, 
+    playAudioBlob, 
+    generateVoiceAgentReply, 
+    cleanMarkdownForSpeech,
+    type VoiceChatMessage 
+} from '../services/voiceService';
 import { useTranslation } from 'react-i18next';
+import ReactMarkdown from 'react-markdown';
 
 interface VoiceChatOverlayProps {
     isOpen: boolean;
@@ -41,6 +49,7 @@ export default function VoiceChatOverlay({ isOpen, onClose }: VoiceChatOverlayPr
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const chunksRef = useRef<Blob[]>([]);
     const streamRef = useRef<MediaStream | null>(null);
+    const conversationHistoryRef = useRef<VoiceChatMessage[]>([]);
 
     // Cleanup on close
     useEffect(() => {
@@ -51,6 +60,7 @@ export default function VoiceChatOverlay({ isOpen, onClose }: VoiceChatOverlayPr
             setAiText('');
             setDetectedLang('');
             setErrorMsg('');
+            conversationHistoryRef.current = [];
         }
     }, [isOpen]);
 
@@ -121,26 +131,16 @@ export default function VoiceChatOverlay({ isOpen, onClose }: VoiceChatOverlayPr
             setVoiceState('thinking');
             setAiText(`${t('chat.processingPrefix')} "${text}"`);
 
-            // Step 1.5: Gather location for weather context
-            let lat: number | undefined;
-            let lon: number | undefined;
-            try {
-                const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-                    navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 3000 });
-                });
-                lat = pos.coords.latitude;
-                lon = pos.coords.longitude;
-            } catch (geoErr) {
-                console.warn('Geolocation unavailable, weather context skipped:', geoErr);
-            }
+            // Step 2: Query the Seva AI Agent with full tool-calling support
+            conversationHistoryRef.current.push({ role: 'user', content: text });
+            const aiResponseText = await generateVoiceAgentReply(conversationHistoryRef.current, lang);
+            conversationHistoryRef.current.push({ role: 'assistant', content: aiResponseText });
+            setAiText(aiResponseText);
 
-            // Step 2: Query the LLM endpoint natively
-            const aiResponseText = await generateVoiceChatReply(text, lang, lat, lon);
-
-            // Step 3: TTS — synthesize response speech
+            // Step 3: TTS — synthesize response speech with clean text
             setVoiceState('speaking');
-            const responseAudio = await synthesizeSpeech(aiResponseText, lang);
-            setAiText(aiResponseText); // Show what was spoken
+            const speechText = cleanMarkdownForSpeech(aiResponseText);
+            const responseAudio = await synthesizeSpeech(speechText, lang);
 
             // Step 4: Play the audio response
             await playAudioBlob(responseAudio);
@@ -254,9 +254,11 @@ export default function VoiceChatOverlay({ isOpen, onClose }: VoiceChatOverlayPr
 
                 {/* AI response text */}
                 {aiText && voiceState !== 'transcribing' && (
-                    <div className="bg-green-500/5 backdrop-blur-md border border-green-500/10 rounded-2xl px-5 py-3 max-w-sm">
+                    <div className="bg-green-500/5 backdrop-blur-md border border-green-500/10 rounded-2xl px-5 py-3 max-w-sm max-h-56 overflow-y-auto no-scrollbar">
                         <p className="text-[10px] text-green-500/70 uppercase tracking-wider mb-1">{t('chat.aiResponse')}</p>
-                        <p className="text-green-100 text-sm">{aiText}</p>
+                        <div className="text-green-100 text-sm leading-relaxed markdown-chat">
+                            <ReactMarkdown>{aiText}</ReactMarkdown>
+                        </div>
                     </div>
                 )}
             </div>

@@ -6,9 +6,26 @@ export interface NDVIData {
     date_range_days: number;
 }
 
+// ─── Daily rainfall breakdown from backend ──────────────────────────────
+export interface DailyRainfall {
+    day: number;
+    rainfall_mm: number;
+    severity: string; // IMD category: no_rain | light | moderate | heavy | very_heavy | extremely_heavy
+}
+
 export interface RainfallData {
+    // Backward-compatible fields
     forecast_rainfall_mm: number;
     forecast_days: number;
+    // New classified fields
+    cumulative_mm: number;
+    daily_breakdown: DailyRainfall[];
+    peak_24h_mm: number | null;
+    peak_24h_severity: string;
+    waterlogging_risk: string;   // low | moderate | high | very_high | unknown
+    river_flood_status: string;  // not_assessed
+    classification_method: string;
+    disclaimer: string;
 }
 
 export interface TemperatureData {

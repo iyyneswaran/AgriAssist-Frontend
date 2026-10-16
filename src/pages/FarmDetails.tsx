@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Folder, MapPin, Droplet, Sun, Activity, Beaker, Award, ChevronDown, ChevronUp, Loader2, RefreshCw } from 'lucide-react';
 import BottomNav from '../components/BottomNav';
 import { useAppData } from '../context/AppDataContext';
@@ -6,6 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { getSchemeRecommendations } from '../services/schemeService';
 import type { SchemeRecommendation } from '../services/schemeService';
+import type { CropAssignment } from '../services/cropService';
 import SensorLiveData from '../components/farm/SensorLiveData';
 import AdvancedAnalysis from '../components/farm/AdvancedAnalysis';
 
@@ -77,6 +79,18 @@ export default function FarmDetails() {
     const { t } = useTranslation();
     const { token } = useAuth();
     const { land, geoData, isDataReady, fields, activeCrops } = useAppData();
+    const location = useLocation();
+
+    useEffect(() => {
+        if (location.hash === '#schemes') {
+            setTimeout(() => {
+                const el = document.getElementById('schemes');
+                if (el) {
+                    el.scrollIntoView({ behavior: 'smooth' });
+                }
+            }, 300);
+        }
+    }, [location.hash, isDataReady]);
 
     const loading = !isDataReady;
 
@@ -98,7 +112,7 @@ export default function FarmDetails() {
     // Single farm: first field + first active assignment
     const firstField = fields.length > 0 ? fields[0] : null;
     const assignment = firstField
-        ? activeCrops.find((a: any) => a.fieldId === firstField.id)
+        ? activeCrops.find((a: CropAssignment) => a.fieldId === firstField.id)
         : null;
 
     // Prefer manual crop name from land, then fall back to assignment
@@ -110,10 +124,10 @@ export default function FarmDetails() {
     const metricTemperature = metrics?.temperature_celsius ?? null;
 
     // Corners count
-    const cornersCount = land?.corners && Array.isArray(land.corners) ? (land.corners as any[]).length : 0;
+    const cornersCount = land?.corners && Array.isArray(land.corners) ? land.corners.length : 0;
 
     // Fetch scheme recommendations when land data is available
-    const fetchSchemes = async () => {
+    const fetchSchemes = useCallback(async () => {
         if (!token || !land) return;
 
         setSchemesLoading(true);
@@ -134,19 +148,20 @@ export default function FarmDetails() {
             } else {
                 setSchemes([]);
             }
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('[FarmDetails] Scheme fetch error:', err);
-            setSchemesError(err.message || 'Failed to load scheme recommendations');
+            const msg = err instanceof Error ? err.message : 'Failed to load scheme recommendations';
+            setSchemesError(msg);
         } finally {
             setSchemesLoading(false);
         }
-    };
+    }, [token, land]);
 
     useEffect(() => {
         if (isDataReady && land && token) {
             fetchSchemes();
         }
-    }, [isDataReady, land?.id, token]);
+    }, [isDataReady, land, token, fetchSchemes]);
 
     if (loading) {
         return (
@@ -333,7 +348,7 @@ export default function FarmDetails() {
                 </div>
 
                 {/* ──────────── Government Schemes Section ──────────── */}
-                <div className="mt-6 px-4">
+                <div id="schemes" className="mt-6 px-4">
                     <div className="relative glass-panel-dark border border-white/20 rounded-3xl shadow-2xl overflow-hidden p-5">
 
                         {/* Decorative glow */}
