@@ -15,6 +15,8 @@ import { analyzeGeo } from '../services/geoService';
 import type { GeoAnalysisData } from '../services/geoService';
 import { getMyConversations } from '../services/chatService';
 import type { ChatHistoryItem } from '../components/ChatSidebar';
+import { getSchemeRecommendations } from '../services/schemeService';
+import type { SchemeRecommendation } from '../services/schemeService';
 
 interface AppDataContextType {
     // Land
@@ -43,6 +45,11 @@ interface AppDataContextType {
     conversationsLoading: boolean;
     setConversations: React.Dispatch<React.SetStateAction<ChatHistoryItem[]>>;
 
+    // Scheme recommendations
+    schemes: SchemeRecommendation[];
+    schemesLoading: boolean;
+    schemesError: string | null;
+
     // Global loading (land + weather + crops + fields)
     isDataReady: boolean;
 
@@ -50,6 +57,7 @@ interface AppDataContextType {
     refreshAll: () => Promise<void>;
     refreshGeo: () => Promise<void>;
     refreshConversations: () => Promise<void>;
+    refreshSchemes: () => Promise<void>;
 }
 
 const AppDataContext = createContext<AppDataContextType | undefined>(undefined);
@@ -86,10 +94,24 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
     const [conversations, setConversations] = useState<ChatHistoryItem[]>([]);
     const [conversationsLoading, setConversationsLoading] = useState(true);
 
-    // Track if initial fetch has happened successfully
-    const [hasFetched, setHasFetched] = useState(false);
+    // Scheme recommendations
+    const [schemes, setSchemes] = useState<SchemeRecommendation[]>([]);
+    const [schemesLoading, setSchemesLoading] = useState(false);
+    const [schemesError, setSchemesError] = useState<string | null>(null);
+
+    // Ref-based guard to prevent the initial useEffect from re-firing
+    // due to callback identity changes (which caused the infinite loop).
+    const hasFetchedRef = useRef(false);
     const retryCountRef = useRef(0);
     const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    // Keep a ref to the latest land so fetchGeoData and fetchSchemes can
+    // read it without including `land` in their dependency arrays.
+    const landRef = useRef<LandDetails | null>(null);
+
+    // Sync landRef whenever land state changes
+    useEffect(() => {
+        landRef.current = land;
+    }, [land]);
 
     const fetchCoreData = useCallback(async (): Promise<boolean> => {
         if (!token) return false;
@@ -137,6 +159,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
         }
     }, [token]);
 
+    // Read land from the ref so the callback identity is stable (only depends on token).
     const fetchGeoData = useCallback(async () => {
         if (!token) return;
 
@@ -144,7 +167,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
         setGeoError(null);
 
         try {
-            const landData = land ?? await getMyLand(token).catch(() => null);
+            const landData = landRef.current ?? await getMyLand(token).catch(() => null);
             if (!landData) {
                 setGeoError('no_land');
                 setGeoLoading(false);
@@ -159,7 +182,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
         } finally {
             setGeoLoading(false);
         }
-    }, [token, land]);
+    }, [token]);
 
     const fetchConversations = useCallback(async () => {
         if (!token) return;
@@ -175,35 +198,79 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
         }
     }, [token]);
 
-    // Initial fetch with retry — runs once when token becomes available
+    // Fetch scheme recommendations — uses landRef for stable identity
+    const fetchSchemes = useCallback(async () => {
+        if (!token) return;
+
+        const landData = landRef.current;
+        if (!landData) return;
+
+        setSchemesLoading(true);
+        setSchemesError(null);
+
+        try {
+            const response = await getSchemeRecommendations(token, {
+                crop: landData.plantedCropManual || '',
+                soil_type: landData.soilType || '',
+                area_acres: landData.totalArea || 0,
+                state: landData.state || '',
+                district: landData.district || '',
+                top_k: 8,
+            });
+
+            if (response.status === 'success' && response.data?.source_documents) {
+                setSchemes(response.data.source_documents);
+            } else {
+                setSchemes([]);
+            }
+        } catch (err: unknown) {
+            console.error('[AppData] Scheme fetch error:', err);
+            const msg = err instanceof Error ? err.message : 'Failed to load scheme recommendations';
+            setSchemesError(msg);
+        } finally {
+            setSchemesLoading(false);
+        }
+    }, [token]);
+
+    // Initial fetch with retry — runs once when token becomes available.
+    // Uses a ref guard so it cannot re-fire from callback identity changes.
     useEffect(() => {
-        if (!token || hasFetched) return;
+        if (!token || hasFetchedRef.current) return;
+
+        let cancelled = false;
 
         const initAll = async () => {
             const coreSuccess = await fetchCoreData();
 
-            // Fire geo and conversations in parallel
+            if (cancelled) return;
+
+            // Fire geo, conversations, and schemes in parallel
             await Promise.all([
                 fetchGeoData(),
                 fetchConversations(),
+                fetchSchemes(),
             ]);
+
+            if (cancelled) return;
 
             if (coreSuccess) {
                 // Data loaded successfully — mark as done, reset retry counter
-                setHasFetched(true);
+                hasFetchedRef.current = true;
                 retryCountRef.current = 0;
             } else if (retryCountRef.current < MAX_RETRIES) {
                 // Core fetch failed — schedule a retry
                 retryCountRef.current += 1;
                 console.warn(`[AppData] Core fetch failed. Retrying (${retryCountRef.current}/${MAX_RETRIES}) in ${RETRY_DELAY_MS}ms...`);
                 retryTimerRef.current = setTimeout(() => {
-                    // Force re-run of this effect by not setting hasFetched
-                    setHasFetched(false);
+                    if (!cancelled) {
+                        // Re-invoke directly instead of toggling state
+                        initAll();
+                    }
                 }, RETRY_DELAY_MS);
             } else {
                 // Exhausted retries — mark as done to stop looping
                 console.error('[AppData] Core fetch failed after max retries. Giving up.');
-                setHasFetched(true);
+                hasFetchedRef.current = true;
                 retryCountRef.current = 0;
             }
         };
@@ -211,18 +278,18 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
         initAll();
 
         return () => {
+            cancelled = true;
             if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
         };
-    }, [token, hasFetched, fetchCoreData, fetchGeoData, fetchConversations]);
+    // Only re-run when token changes. The callbacks are stable (depend only on token).
+    }, [token, fetchCoreData, fetchGeoData, fetchConversations, fetchSchemes]);
 
     // Refresh all (called after Profile save, etc.)
     const refreshAll = useCallback(async () => {
         retryCountRef.current = 0;
-        setHasFetched(false);
         await fetchCoreData();
-        await Promise.all([fetchGeoData(), fetchConversations()]);
-        setHasFetched(true);
-    }, [fetchCoreData, fetchGeoData, fetchConversations]);
+        await Promise.all([fetchGeoData(), fetchConversations(), fetchSchemes()]);
+    }, [fetchCoreData, fetchGeoData, fetchConversations, fetchSchemes]);
 
     // Refresh only geo (Forecast refresh button)
     const refreshGeo = useCallback(async () => {
@@ -233,6 +300,11 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
     const refreshConversations = useCallback(async () => {
         await fetchConversations();
     }, [fetchConversations]);
+
+    // Refresh only schemes (FarmDetails refresh button)
+    const refreshSchemes = useCallback(async () => {
+        await fetchSchemes();
+    }, [fetchSchemes]);
 
     const isDataReady = !landLoading && !weatherLoading && !cropsLoading && !fieldsLoading;
 
@@ -253,10 +325,14 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
                 conversations,
                 conversationsLoading,
                 setConversations,
+                schemes,
+                schemesLoading,
+                schemesError,
                 isDataReady,
                 refreshAll,
                 refreshGeo,
                 refreshConversations,
+                refreshSchemes,
             }}
         >
             {children}

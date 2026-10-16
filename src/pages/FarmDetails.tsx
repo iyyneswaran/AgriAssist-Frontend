@@ -1,13 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Folder, MapPin, Droplet, Sun, Activity, Beaker, Award, ChevronDown, ChevronUp, Loader2, RefreshCw } from 'lucide-react';
 import BottomNav from '../components/BottomNav';
 import { useAppData } from '../context/AppDataContext';
-import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
-import { getSchemeRecommendations } from '../services/schemeService';
-import type { SchemeRecommendation } from '../services/schemeService';
 import type { CropAssignment } from '../services/cropService';
+import type { SchemeRecommendation } from '../services/schemeService';
 import SensorLiveData from '../components/farm/SensorLiveData';
 import AdvancedAnalysis from '../components/farm/AdvancedAnalysis';
 
@@ -77,8 +75,7 @@ const hasValidRegion = (region: string | undefined): boolean => {
 
 export default function FarmDetails() {
     const { t } = useTranslation();
-    const { token } = useAuth();
-    const { land, geoData, isDataReady, fields, activeCrops } = useAppData();
+    const { land, geoData, isDataReady, fields, activeCrops, schemes, schemesLoading, schemesError, refreshSchemes } = useAppData();
     const location = useLocation();
 
     useEffect(() => {
@@ -94,10 +91,7 @@ export default function FarmDetails() {
 
     const loading = !isDataReady;
 
-    // Scheme recommendations state
-    const [schemes, setSchemes] = useState<SchemeRecommendation[]>([]);
-    const [schemesLoading, setSchemesLoading] = useState(false);
-    const [schemesError, setSchemesError] = useState<string | null>(null);
+    // Only UI state — which scheme card is expanded
     const [expandedScheme, setExpandedScheme] = useState<string | null>(null);
 
     const mapSoilType = (type: string) => {
@@ -125,43 +119,6 @@ export default function FarmDetails() {
 
     // Corners count
     const cornersCount = land?.corners && Array.isArray(land.corners) ? land.corners.length : 0;
-
-    // Fetch scheme recommendations when land data is available
-    const fetchSchemes = useCallback(async () => {
-        if (!token || !land) return;
-
-        setSchemesLoading(true);
-        setSchemesError(null);
-
-        try {
-            const response = await getSchemeRecommendations(token, {
-                crop: land.plantedCropManual || '',
-                soil_type: land.soilType || '',
-                area_acres: land.totalArea || 0,
-                state: land.state || '',
-                district: land.district || '',
-                top_k: 8,
-            });
-
-            if (response.status === 'success' && response.data?.source_documents) {
-                setSchemes(response.data.source_documents);
-            } else {
-                setSchemes([]);
-            }
-        } catch (err: unknown) {
-            console.error('[FarmDetails] Scheme fetch error:', err);
-            const msg = err instanceof Error ? err.message : 'Failed to load scheme recommendations';
-            setSchemesError(msg);
-        } finally {
-            setSchemesLoading(false);
-        }
-    }, [token, land]);
-
-    useEffect(() => {
-        if (isDataReady && land && token) {
-            fetchSchemes();
-        }
-    }, [isDataReady, land, token, fetchSchemes]);
 
     if (loading) {
         return (
@@ -361,7 +318,7 @@ export default function FarmDetails() {
                                 <h3 className="text-white text-base font-medium">Government Schemes For You</h3>
                             </div>
                             <button
-                                onClick={fetchSchemes}
+                                onClick={refreshSchemes}
                                 disabled={schemesLoading}
                                 className="text-gray-400 hover:text-white transition-colors p-1"
                             >
@@ -399,7 +356,7 @@ export default function FarmDetails() {
                             <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 text-center relative z-10">
                                 <p className="text-red-400 text-xs">{schemesError}</p>
                                 <button
-                                    onClick={fetchSchemes}
+                                    onClick={refreshSchemes}
                                     className="mt-2 text-[10px] text-red-300 underline hover:text-red-200"
                                 >
                                     Try again
