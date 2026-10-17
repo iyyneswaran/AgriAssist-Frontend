@@ -1,7 +1,7 @@
 import { io, Socket } from 'socket.io-client';
 
 const CHAT_API_URL = import.meta.env.VITE_CHAT_API_URL || 'http://localhost:8001';
-const IOT_SERVER_URL = import.meta.env.VITE_IOT_SERVER_URL || 'http://localhost:3000';
+const IOT_SERVER_URL = import.meta.env.IOT_SERVER_URL || 'http://localhost:3000';
 
 let socket: Socket | null = null;
 

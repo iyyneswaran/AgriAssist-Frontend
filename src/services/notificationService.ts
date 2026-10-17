@@ -198,7 +198,7 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
 }
 
 export async function getVAPIDPublicKey(): Promise<string> {
-  let publicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+  let publicKey = import.meta.env.VAPID_PUBLIC_KEY;
   
   if (!publicKey) {
     const response = await apiFetch(`${CHAT_API_URL}/api/notifications/push/vapid-key`);
