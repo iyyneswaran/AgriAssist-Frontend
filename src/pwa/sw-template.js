@@ -146,7 +146,7 @@ self.addEventListener('message', (event) => {
     return
   }
 
-  if (message.type === 'SET_VAPID_PUBLIC_KEY' && message.publicKey) {
+  if (message.type === 'SET_VITE_VAPID_PUBLIC_KEY' && message.publicKey) {
     event.waitUntil(setMetadata('vapidPublicKey', message.publicKey))
     return
   }

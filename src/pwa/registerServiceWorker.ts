@@ -61,7 +61,7 @@ export async function registerAgriAssistServiceWorker(): Promise<ServiceWorkerRe
 
 export function sendVapidKeyToServiceWorker(publicKey: string): void {
   const controller = navigator.serviceWorker?.controller;
-  controller?.postMessage({ type: 'SET_VAPID_PUBLIC_KEY', publicKey });
+  controller?.postMessage({ type: 'SET_VITE_VAPID_PUBLIC_KEY', publicKey });
 }
 
 export async function showLocalServiceWorkerNotification(body?: string): Promise<void> {

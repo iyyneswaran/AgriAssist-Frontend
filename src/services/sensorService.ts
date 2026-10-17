@@ -1,13 +1,13 @@
 import { io, Socket } from 'socket.io-client';
 
 const CHAT_API_URL = import.meta.env.VITE_CHAT_API_URL || 'http://localhost:8001';
-const IOT_SERVER_URL = import.meta.env.IOT_SERVER_URL || 'http://localhost:3000';
+const VITE_IOT_SERVER_URL = import.meta.env.VITE_IOT_SERVER_URL || 'http://localhost:3000';
 
 let socket: Socket | null = null;
 
 const getSocket = () => {
     if (!socket) {
-        socket = io(IOT_SERVER_URL, {
+        socket = io(VITE_IOT_SERVER_URL, {
             reconnectionDelayMax: 10000,
         });
     }
@@ -53,7 +53,7 @@ const mapSocketData = (data: any): SensorLiveReading => ({
 
 export const getLatestSensorData = async (): Promise<SensorLiveReading | null> => {
     try {
-        const response = await fetch(`${IOT_SERVER_URL}/api/sensors`);
+        const response = await fetch(`${VITE_IOT_SERVER_URL}/api/sensors`);
         if (!response.ok) {
             throw new Error(`Failed to fetch from IoT server: ${response.status}`);
         }
