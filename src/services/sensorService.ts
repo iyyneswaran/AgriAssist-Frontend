@@ -1,3 +1,4 @@
+import { authenticatedApiFetch } from './apiFetch';
 import { io, Socket } from 'socket.io-client';
 
 const CHAT_API_URL = import.meta.env.VITE_CHAT_API_URL || 'http://localhost:8001';
@@ -115,7 +116,7 @@ export const getSensorAnalysis = async (
     const queryString = params.toString();
     const url = `${CHAT_API_URL}/api/sensor-data/analysis/${userId}${queryString ? `?${queryString}` : ''}`;
 
-    const response = await fetch(url);
+    const response = await authenticatedApiFetch(url);
 
     if (!response.ok) {
         const err = await response.json().catch(() => ({ detail: 'Analysis failed' }));

@@ -1,5 +1,5 @@
 import { API_BASE_URL } from './authService';
-import { apiFetch } from './apiFetch';
+import { authenticatedApiFetch as apiFetch } from './apiFetch';
 
 const DIRECT_VOICE_AGENT_PHONE_NUMBER = import.meta.env.VITE_VOICE_AGENT_PHONE_NUMBER?.trim() || '';
 

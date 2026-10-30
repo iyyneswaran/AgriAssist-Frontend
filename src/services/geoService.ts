@@ -1,3 +1,4 @@
+import { authenticatedApiFetch } from './apiFetch';
 const GEO_API_URL = `${import.meta.env.VITE_CHAT_API_URL || 'http://localhost:8001'}/geo`;
 
 export interface NDVIData {
@@ -54,7 +55,7 @@ export const analyzeGeo = async (
     longitude: number,
     farmerId?: string
 ): Promise<GeoAnalysisData> => {
-    const response = await fetch(`${GEO_API_URL}/analyze`, {
+    const response = await authenticatedApiFetch(`${GEO_API_URL}/analyze`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',

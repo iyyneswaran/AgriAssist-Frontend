@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import type { User } from '../services/authService';
+import { unsubscribeFromPush } from '../services/notificationService';
+import { setPushUser } from '../pwa/registerServiceWorker';
 
 interface AuthContextType {
     user: User | null;
@@ -36,9 +38,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setToken(authToken);
         localStorage.setItem('user', JSON.stringify(userData));
         localStorage.setItem('token', authToken);
+        setPushUser(userData.id);
     };
 
     const logout = () => {
+        setPushUser(null);
+        void unsubscribeFromPush().catch(() => undefined);
         setUser(null);
         setToken(null);
         localStorage.removeItem('user');

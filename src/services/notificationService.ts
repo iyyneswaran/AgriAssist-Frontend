@@ -311,6 +311,7 @@ async function sendSubscriptionToBackend(subscription: PushSubscription): Promis
 }
 
 export async function unsubscribeFromPush(): Promise<void> {
+  const headers = getAuthHeaders(); // Capture before logout removes the token.
   const support = getPushSupportStatus();
   if (!support.serviceWorker || !support.pushManager) {
     return;
@@ -328,7 +329,7 @@ export async function unsubscribeFromPush(): Promise<void> {
   if (endpoint) {
     const response = await apiFetch(`${CHAT_API_URL}/api/notifications/push/unsubscribe`, {
       method: 'POST',
-      headers: getAuthHeaders(),
+      headers,
       body: JSON.stringify({ endpoint }),
     });
 

@@ -40,6 +40,11 @@ export async function registerAgriAssistServiceWorker(): Promise<ServiceWorkerRe
     });
 
     await navigator.serviceWorker.ready;
+    let userId: string | null = null;
+    try {
+      if (localStorage.getItem('token')) userId = JSON.parse(localStorage.getItem('user') || 'null')?.id || null;
+    } catch { /* Invalid saved session stays signed out for push. */ }
+    registration.active?.postMessage({ type: 'SET_PUSH_USER', userId });
     void registration.update();
 
     return {
@@ -62,6 +67,14 @@ export async function registerAgriAssistServiceWorker(): Promise<ServiceWorkerRe
 export function sendVapidKeyToServiceWorker(publicKey: string): void {
   const controller = navigator.serviceWorker?.controller;
   controller?.postMessage({ type: 'SET_VITE_VAPID_PUBLIC_KEY', publicKey });
+}
+
+export function setPushUser(userId: string | null): void {
+  if (!('serviceWorker' in navigator)) return;
+  navigator.serviceWorker.controller?.postMessage({ type: 'SET_PUSH_USER', userId });
+  void navigator.serviceWorker.getRegistration().then(registration => {
+    registration?.active?.postMessage({ type: 'SET_PUSH_USER', userId });
+  });
 }
 
 export async function showLocalServiceWorkerNotification(body?: string): Promise<void> {

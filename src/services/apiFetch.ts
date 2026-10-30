@@ -7,6 +7,15 @@
 
 export const RATE_LIMIT_EVENT = 'rate-limit-hit';
 
+/** Use only for our authenticated APIs, never for third-party URLs. */
+export async function authenticatedApiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+    const token = localStorage.getItem('token');
+    if (!token) throw new Error('Please sign in to continue');
+    const headers = new Headers(init?.headers);
+    headers.set('Authorization', `Bearer ${token}`);
+    return apiFetch(input, { ...init, headers });
+}
+
 export async function apiFetch(
     input: RequestInfo | URL,
     init?: RequestInit

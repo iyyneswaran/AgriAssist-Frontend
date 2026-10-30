@@ -15,6 +15,7 @@ const NOTIF_DB_NAME = 'agriassist-notifications'
 const NOTIF_DB_VERSION = 2
 const NOTIF_STORE_NAME = 'notifications'
 const META_STORE_NAME = 'metadata'
+let accountUpdate = Promise.resolve()
 
 const EVENT_TYPE_TAGS = {
   smart_irrigation: 'irrigation',
@@ -109,7 +110,8 @@ self.addEventListener('fetch', (event) => {
 })
 
 self.addEventListener('push', (event) => {
-  event.waitUntil(handlePushEvent(event))
+  accountUpdate = accountUpdate.catch(() => undefined).then(() => handlePushEvent(event))
+  event.waitUntil(accountUpdate)
 })
 
 self.addEventListener('notificationclick', (event) => {
@@ -140,6 +142,25 @@ self.addEventListener('pushsubscriptionchange', (event) => {
 
 self.addEventListener('message', (event) => {
   const message = event.data || {}
+
+  if (message.type === 'SET_PUSH_USER') {
+    accountUpdate = accountUpdate.catch(() => undefined).then(async () => {
+      const userId = typeof message.userId === 'string' ? message.userId : null
+      const previous = await getMetadata('pushUserId')
+      if (previous !== userId || !userId) {
+        await setMetadata('pushUserId', userId)
+        const notifications = await self.registration.getNotifications()
+        notifications.forEach(notification => notification.close())
+        const db = await openNotifDB()
+        const tx = db.transaction(NOTIF_STORE_NAME, 'readwrite')
+        tx.objectStore(NOTIF_STORE_NAME).clear()
+        await waitForTransaction(tx)
+        db.close()
+      }
+    })
+    event.waitUntil(accountUpdate)
+    return
+  }
 
   if (message.type === 'SKIP_WAITING') {
     event.waitUntil(self.skipWaiting())
@@ -252,6 +273,8 @@ async function handleStaticRequest(event) {
 
 async function handlePushEvent(event) {
   const payload = readPushPayload(event)
+  const userId = await getMetadata('pushUserId')
+  if (!userId || payload.user_id !== userId) return
   const severity = payload.severity || 'medium'
   const eventType = payload.event_type || 'system'
   const severityOptions = SEVERITY_OPTIONS[severity] || SEVERITY_OPTIONS.medium

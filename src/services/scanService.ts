@@ -1,3 +1,4 @@
+import { authenticatedApiFetch } from './apiFetch';
 /**
  * Scan Crop Service — Handles disease detection API calls.
  * Communicates with the Chat backend (port 8001) for image analysis and remedy generation.
@@ -37,7 +38,7 @@ export const analyzeCrop = async (file: File): Promise<ScanResult> => {
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await fetch(`${CHAT_API_URL}/api/scan/analyze`, {
+    const response = await authenticatedApiFetch(`${CHAT_API_URL}/api/scan/analyze`, {
         method: 'POST',
         body: formData,
     });
@@ -57,7 +58,7 @@ export const predictDisease = async (file: File): Promise<ScanPrediction> => {
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await fetch(`${CHAT_API_URL}/api/scan/predict`, {
+    const response = await authenticatedApiFetch(`${CHAT_API_URL}/api/scan/predict`, {
         method: 'POST',
         body: formData,
     });

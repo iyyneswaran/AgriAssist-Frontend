@@ -1,3 +1,4 @@
+import { authenticatedApiFetch } from './apiFetch';
 /**
  * Voice Service — Frontend service for STT and TTS via the Python Chat backend.
  * Calls /api/voice/transcribe and /api/voice/synthesize endpoints.
@@ -37,7 +38,7 @@ export const generateVoiceAgentReply = async (
     messages: VoiceChatMessage[],
     language?: string
 ): Promise<string> => {
-    const response = await fetch(`${TEXT_CHAT_API_URL}/agent`, {
+    const response = await authenticatedApiFetch(`${TEXT_CHAT_API_URL}/agent`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -66,7 +67,7 @@ export const generateVoiceChatReply = async (text: string, language?: string, la
         return await generateVoiceAgentReply([{ role: 'user', content: text }], language);
     } catch (e) {
         // Fallback to legacy endpoint if agent fails
-        const response = await fetch(`${TEXT_CHAT_API_URL}/generate`, {
+        const response = await authenticatedApiFetch(`${TEXT_CHAT_API_URL}/generate`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -99,7 +100,7 @@ export const transcribeAudio = async (audioBlob: Blob, language?: string): Promi
         formData.append('language', language);
     }
 
-    const response = await fetch(`${VOICE_API_URL}/transcribe`, {
+    const response = await authenticatedApiFetch(`${VOICE_API_URL}/transcribe`, {
         method: 'POST',
         body: formData,
     });
@@ -123,7 +124,7 @@ export const synthesizeSpeech = async (text: string, language?: string): Promise
         formData.append('language', language);
     }
 
-    const response = await fetch(`${VOICE_API_URL}/synthesize`, {
+    const response = await authenticatedApiFetch(`${VOICE_API_URL}/synthesize`, {
         method: 'POST',
         body: formData,
     });
